@@ -1,0 +1,169 @@
+@import "tailwindcss";
+
+/* Global custom styles — font is applied via Brand theme at runtime */
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── Interactive Transitions ─── */
+
+/* Smooth transitions for all interactive elements */
+button,
+a,
+[role="button"] {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Card hover lift */
+.card-hover {
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.08), 0 4px 10px -3px rgba(0, 0, 0, 0.04);
+}
+.card-hover:active {
+  transform: translateY(0px);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+/* Row highlight */
+.row-hover {
+  transition: background-color 0.15s ease, transform 0.15s ease;
+}
+.row-hover:hover {
+  background-color: rgba(0, 0, 0, 0.015);
+}
+.row-hover:active {
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
+/* Button press effect */
+.btn-press {
+  transition: transform 0.1s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+.btn-press:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+.btn-press:active {
+  transform: scale(0.96);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Outline button hover */
+.btn-outline-hover {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.btn-outline-hover:hover {
+  background-color: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+.btn-outline-hover:active {
+  transform: scale(0.97);
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Tab underline animation */
+.tab-item {
+  position: relative;
+  transition: color 0.2s ease;
+}
+.tab-item::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  right: 50%;
+  height: 2px;
+  border-radius: 999px;
+  background-color: currentColor;
+  transition: left 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+              right 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.2s ease;
+  opacity: 0;
+}
+.tab-item:hover::after {
+  left: 25%;
+  right: 25%;
+  opacity: 0.3;
+}
+.tab-item.active::after {
+  left: 8px;
+  right: 8px;
+  opacity: 1;
+}
+
+/* Icon spin on hover */
+.icon-spin:hover svg {
+  transition: transform 0.3s ease;
+  transform: rotate(90deg);
+}
+
+/* Pulse animation for status dots */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* Fade in animation for content */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-in {
+  animation: fade-in-up 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Staggered animation delays */
+.stagger-1 { animation-delay: 0.05s; opacity: 0; }
+.stagger-2 { animation-delay: 0.1s; opacity: 0; }
+.stagger-3 { animation-delay: 0.15s; opacity: 0; }
+.stagger-4 { animation-delay: 0.2s; opacity: 0; }
+
+/* Timeline dot pulse for current */
+@keyframes timeline-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(212, 0, 42, 0.3); }
+  50% { box-shadow: 0 0 0 6px rgba(212, 0, 42, 0); }
+}
+.timeline-current {
+  animation: timeline-pulse 2s ease-in-out infinite;
+}
+
+/* Tooltip on hover */
+.tooltip-parent {
+  position: relative;
+}
+.tooltip-parent::before {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: #1f2937;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.tooltip-parent:hover::before {
+  opacity: 1;
+  transform: translateX(-50%) translateY(-4px);
+}

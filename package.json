@@ -5,13 +5,23 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:avis": "vite --mode avis",
+    "dev:budget": "vite --mode budget",
     "build": "vite build",
-    "lint": "eslint .",
-    "preview": "vite preview"
+    "build:avis": "vite build --mode avis",
+    "build:budget": "vite build --mode budget",
+    "preview": "vite preview",
+    "preview:avis": "vite preview --mode avis",
+    "preview:budget": "vite preview --mode budget",
+    "lint": "eslint ."
   },
   "dependencies": {
+    "@reduxjs/toolkit": "^2.12.0",
+    "axios": "^1.19.0",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "react-redux": "^9.3.0",
+    "react-router-dom": "^7.18.2"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
