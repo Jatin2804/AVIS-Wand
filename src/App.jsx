@@ -25,7 +25,15 @@ function AppLayout() {
     <>
       <Navbar onSelectRental={handleNavSelect} />
       <Routes>
-        <Route path="/reservations" element={<Reservations navSelectedRA={navSearchRA} onClearNavSearch={clearNavSearch} />} />
+        <Route
+          path="/reservations"
+          element={
+            <Reservations
+              navSelectedRA={navSearchRA}
+              onClearNavSearch={clearNavSearch}
+            />
+          }
+        />
         <Route path="/dashboard/:raNumber" element={<Dashboard />} />
         <Route path="*" element={<Navigate to="/reservations" replace />} />
       </Routes>

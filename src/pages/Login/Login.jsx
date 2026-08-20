@@ -14,7 +14,7 @@ const Login = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (form.username === "user" && form.password === "1234") {
+    if (form.username === "lhr.user" && form.password === "Aug@2026") {
       localStorage.setItem("token", "authenticated");
       navigate("/reservations");
     } else {
@@ -29,21 +29,18 @@ const Login = () => {
         className="hidden lg:flex lg:w-[55%] items-center justify-center relative overflow-hidden"
         style={{ backgroundColor: Brand.theme.colors.hero }}
       >
-        {/* Background Image */}
         <img
           src={Brand.assets.loginBackground}
           alt=""
           className="absolute inset-0 w-full h-full object-cover"
           style={{ opacity: 0.3 }}
         />
-        {/* Gradient Overlay */}
         <div
           className="absolute inset-0"
           style={{
             background: `linear-gradient(135deg, ${Brand.theme.colors.hero}ee 0%, ${Brand.theme.colors.primary}88 100%)`,
           }}
         />
-        {/* Content */}
         <div className="relative z-10 text-center px-16 max-w-lg">
           <img
             src={Brand.assets.logo}
@@ -74,13 +71,15 @@ const Login = () => {
         style={{ backgroundColor: Brand.theme.colors.background }}
       >
         <div className="w-full max-w-sm">
-          {/* Logo */}
           <div className="flex justify-center mb-10 lg:mb-12">
             <img
               src={Brand.assets.logo}
               alt={Brand.strings.appName}
               className="w-auto"
-              style={{ height: Brand.assets.logoHeight || "3rem", width: Brand.assets.logoWidth || "auto" }}
+              style={{
+                height: Brand.assets.logoHeight || "3rem",
+                width: Brand.assets.logoWidth || "auto",
+              }}
             />
           </div>
 
@@ -91,7 +90,10 @@ const Login = () => {
             >
               {Brand.strings.loginTitle}
             </h1>
-            <p className="text-sm" style={{ color: Brand.theme.colors.text.muted }}>
+            <p
+              className="text-sm"
+              style={{ color: Brand.theme.colors.text.muted }}
+            >
               {Brand.strings.loginSubtitle}
             </p>
           </div>
@@ -124,7 +126,9 @@ const Login = () => {
                   e.target.style.boxShadow = `0 0 0 3px ${Brand.theme.colors.primary}15`;
                 }}
                 onBlur={(e) => {
-                  e.target.style.borderColor = error ? Brand.theme.colors.danger : "#e5e7eb";
+                  e.target.style.borderColor = error
+                    ? Brand.theme.colors.danger
+                    : "#e5e7eb";
                   e.target.style.boxShadow = "0 1px 2px rgba(0,0,0,0.04)";
                 }}
               />
@@ -157,7 +161,9 @@ const Login = () => {
                   e.target.style.boxShadow = `0 0 0 3px ${Brand.theme.colors.primary}15`;
                 }}
                 onBlur={(e) => {
-                  e.target.style.borderColor = error ? Brand.theme.colors.danger : "#e5e7eb";
+                  e.target.style.borderColor = error
+                    ? Brand.theme.colors.danger
+                    : "#e5e7eb";
                   e.target.style.boxShadow = "0 1px 2px rgba(0,0,0,0.04)";
                 }}
               />
@@ -166,10 +172,21 @@ const Login = () => {
             {error && (
               <div
                 className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm"
-                style={{ backgroundColor: Brand.theme.colors.danger + "10", color: Brand.theme.colors.danger }}
+                style={{
+                  backgroundColor: Brand.theme.colors.danger + "10",
+                  color: Brand.theme.colors.danger,
+                }}
               >
-                <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                <svg
+                  className="w-4 h-4 shrink-0"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                    clipRule="evenodd"
+                  />
                 </svg>
                 {error}
               </div>
@@ -188,7 +205,10 @@ const Login = () => {
             </button>
           </form>
 
-          <p className="mt-10 text-center text-xs" style={{ color: Brand.theme.colors.text.muted }}>
+          <p
+            className="mt-10 text-center text-xs"
+            style={{ color: Brand.theme.colors.text.muted }}
+          >
             {Brand.strings.footerText}
           </p>
         </div>

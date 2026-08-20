@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Brand from "../../brands";
-import rentalService from "../../services/rentalService";
+import wandService from "../../services/wandService";
 
 /* ─── Helpers ─── */
 function getCurrentStep(timeline) {
@@ -117,8 +117,142 @@ const NoteRow = ({ who, text }) => (
 const Dashboard = () => {
   const { raNumber } = useParams();
   const navigate = useNavigate();
-  const rental = rentalService.getByRaNumber(raNumber);
+  const [rental, setRental] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
+
+  useEffect(() => {
+    // Parse currency values that may contain HTML entities like &#163; for £
+    const parseCurrency = (val) => {
+      if (!val) return 0;
+      // Decode HTML entities (&#163; → £), then strip currency symbols and commas
+      const decoded = val.replace(/&#\d+;/g, "").replace(/&amp;#\d+;/g, "");
+      return parseFloat(decoded.replace(/[^0-9.]/g, "")) || 0;
+    };
+
+    const fetchRental = async () => {
+      try {
+        const data = await wandService.displayRental(raNumber);
+        if (data?.rentalData) {
+          const r = data.rentalData;
+          // Map WAND API response to the format Dashboard expects
+          setRental({
+            raNumber: r.raNum,
+            status: r.rentalAlive ? "open" : "closed",
+            references: {
+              ra: r.raNum,
+              wizard: r.wizardNumber,
+              reservation: r.resNum,
+              mva: r.mva,
+            },
+            customer: {
+              fullName: r.fullName,
+              company: r.company,
+              licenceCountry: r.licenseCountry,
+              licenceState: r.licenseState,
+              licenceNumber: r.licenseNumber,
+              dateOfBirth: r.dob,
+              address1: r.addr1,
+              address2: r.addr2,
+              cityPost: r.addr3,
+              phone: r.contact || "—",
+              email: data.wizconMB?.emailAddress || "—",
+              loyalty: r.preferredCustFlag ? "Preferred" : "",
+              preferred: r.preferred,
+              connectedCar: r.connectedCarsInd,
+              freqTravel: "",
+              partnerNumber: r.wizardNumber,
+            },
+            vehicle: {
+              mva: r.mva,
+              description: `${r.year} ${r.color} ${r.make} ${r.model}`,
+              make: `${r.make} ${r.model}`,
+              year: parseInt(r.year) || 0,
+              colour: r.color,
+              group: r.carGroup,
+              mileageOut: parseInt(r.mileageOut) || 0,
+              mileageIn: r.mileageIn ? parseInt(r.mileageIn) : null,
+              fuelOut: `${r.fuelOut}/8`,
+              fuelService: r.fuelSvc === "Y" ? "Yes" : "No",
+              damaged: r.damageIndicator === "Y" ? "Yes" : "No",
+              accidentReported:
+                r.accidentReportIndicator === "Y" ? "Yes" : "No",
+            },
+            rental: {
+              outStation: `${r.checkOutStationMnemonic} — ${r.checkOutStation?.trim()}`,
+              inStation: `${r.checkInStationMnemonic} — ${r.checkInStation?.trim()}`,
+              checkout: `${r.checkOutDate} ${r.checkOutTime || ""}`.trim(),
+              return: `${r.checkInDate} ${r.checkInTime || ""}`.trim(),
+              rateCode: r.rateCode,
+              awd: r.awdCompanyName || "—",
+              coupon: r.coupon || "—",
+              remarks: r.remarks,
+              commission: r.commission,
+              tax: `${r.tax}%`,
+              discount: r.discount,
+              typeOfRental: r.rentalStatus || r.status,
+            },
+            payment: {
+              method: r.mop,
+              card: `${r.ccType} •••• ${r.cardNo?.slice(-4) || ""}`,
+              authStatus: r.authOut === "YES" ? "Authorized" : "Pending",
+            },
+            rates: {
+              daily: parseCurrency(r.daily),
+              weekly: parseCurrency(r.weekly),
+              freeMiles: data.qvData?.qvDiFreeMiles || "—",
+            },
+            charges: {
+              csc: r.custServiceCert || "0.00",
+              moneyOff: r.moneyOff || "0.00",
+              couponAmount: "0.00",
+              parking: r.parkingGarage || "0.00",
+              childSeat: r.childSeat || "0.00",
+              towing: r.towing || "0.00",
+              accidentRepairs: r.accidentRepairs || "0.00",
+              luggageRack: r.luggageRack || "0.00",
+              others: r.other || "0.00",
+            },
+            totals: {
+              amountDue: parseCurrency(r.amtDueRateAmt),
+              estTotal: parseCurrency(r.totalChargesRateAmt),
+              prepayment: 0,
+            },
+            timeline: [
+              { key: "reserved", done: true, sub: "" },
+              { key: "checkedOut", done: true, sub: r.checkOutDate },
+              { key: "onRental", current: true, sub: r.status },
+              { key: "return", sub: r.checkInDate },
+              { key: "closed", sub: "—" },
+            ],
+            notes: [
+              { who: "Remarks", text: r.remarks },
+              { who: "Status", text: r.turnBackStatus },
+            ],
+          });
+        }
+      } catch (err) {
+        console.error("Failed to fetch rental:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchRental();
+  }, [raNumber]);
+
+  if (loading) {
+    return (
+      <div
+        className="flex items-center justify-center min-h-[calc(100vh-64px)]"
+        style={{ backgroundColor: "#fafafa" }}
+      >
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-gray-300 border-t-red-500 rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-sm text-gray-500">Loading rental data...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!rental) {
     return (
@@ -195,10 +329,10 @@ const Dashboard = () => {
     >
       {/* ═══ HEADER ═══ */}
       <div className="bg-white border-b border-gray-200">
-        {/* Top row */}
+        {/* Top row — Name + Timeline + Amount */}
         <div className="px-4 sm:px-6 pt-4 sm:pt-5 pb-3 sm:pb-4">
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-            <div className="min-w-0">
+            <div className="min-w-0 shrink-0">
               <h1
                 className="text-lg sm:text-xl font-bold truncate"
                 style={{ color: Brand.theme.colors.text.primary }}
@@ -227,6 +361,80 @@ const Dashboard = () => {
                 </span>
               </div>
             </div>
+
+            {/* Timeline — inline on desktop, hidden on mobile (shown below instead) */}
+            <div className="hidden md:flex flex-1 items-center justify-center mx-4 max-w-xl">
+              <div className="flex items-center w-full">
+                {rental.timeline.map((step, i) => (
+                  <div
+                    key={step.key}
+                    className="flex items-center flex-1 last:flex-initial"
+                  >
+                    <div className="flex flex-col items-center">
+                      {step.current ? (
+                        <div
+                          className="w-6 h-6 rounded-full flex items-center justify-center z-10 timeline-current"
+                          style={{
+                            backgroundColor: Brand.theme.colors.primary,
+                          }}
+                        >
+                          <svg
+                            className="w-3.5 h-3.5 text-white"
+                            fill="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z" />
+                          </svg>
+                        </div>
+                      ) : (
+                        <div
+                          className="w-2.5 h-2.5 rounded-full border-2"
+                          style={{
+                            backgroundColor: step.done ? "#4caf50" : "#fff",
+                            borderColor: step.done ? "#4caf50" : "#d1d5db",
+                          }}
+                        />
+                      )}
+                      <span
+                        className="text-[9px] mt-1 capitalize whitespace-nowrap font-medium"
+                        style={{
+                          color: step.current
+                            ? Brand.theme.colors.primary
+                            : step.done
+                              ? "#374151"
+                              : "#9ca3af",
+                        }}
+                      >
+                        {step.key === "checkedOut"
+                          ? "Checked Out"
+                          : step.key === "onRental"
+                            ? "On Rental"
+                            : step.key}
+                      </span>
+                      <span
+                        className="text-[8px]"
+                        style={{
+                          color: step.current
+                            ? Brand.theme.colors.primary
+                            : "#9ca3af",
+                        }}
+                      >
+                        {step.sub}
+                      </span>
+                    </div>
+                    {i < rental.timeline.length - 1 && (
+                      <div
+                        className="flex-1 h-[2px] mx-1 -mt-4"
+                        style={{
+                          backgroundColor: step.done ? "#4caf50" : "#e5e7eb",
+                        }}
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div className="flex items-start gap-5 sm:gap-8 shrink-0">
               <div className="text-right">
                 <div className="text-[10px] sm:text-[11px] uppercase tracking-wider text-gray-400 font-medium">
@@ -256,16 +464,16 @@ const Dashboard = () => {
                   className="text-xl sm:text-2xl font-bold mt-0.5"
                   style={{ color: Brand.theme.colors.text.primary }}
                 >
-                  ${rental.totals.amountDue.toFixed(2)}
+                  £{rental.totals.amountDue.toFixed(2)}
                 </div>
                 <div className="text-[10px] sm:text-[11px] text-gray-400">
                   Total{" "}
                   <span className="font-medium">
-                    ${rental.totals.estTotal.toFixed(2)}
+                    £{rental.totals.estTotal.toFixed(2)}
                   </span>{" "}
                   · Prepaid{" "}
                   <span className="font-medium">
-                    ${rental.totals.prepayment.toFixed(2)}
+                    £{rental.totals.prepayment.toFixed(2)}
                   </span>
                 </div>
               </div>
@@ -273,33 +481,17 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Tags + References */}
-        <div className="px-4 sm:px-6 py-2 border-t border-gray-100 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2 flex-wrap">
-            {rental.customer.preferred && (
-              <TagBadge label="Preferred" color="#10b981" />
-            )}
-            {rental.customer.connectedCar && (
-              <TagBadge label="Connected Car" color="#3b82f6" />
-            )}
-            {rental.customer.company && (
-              <TagBadge
-                label={rental.customer.company}
-                color={Brand.theme.colors.primary}
-              />
-            )}
-          </div>
-          <div className="flex items-center gap-3 sm:gap-5 flex-wrap">
-            <span className="text-[10px] sm:text-[11px] text-gray-400 font-mono">
-              WIZARD {rental.references.wizard}
-            </span>
-            <span className="text-[10px] sm:text-[11px] text-gray-400 font-mono">
-              RES {rental.references.reservation}
-            </span>
-            <span className="text-[10px] sm:text-[11px] text-gray-400 font-mono">
-              MVA {rental.references.mva}
-            </span>
-          </div>
+        {/* References row */}
+        <div className="px-4 sm:px-6 py-2 border-t border-gray-100 flex flex-wrap items-center gap-3 sm:gap-5">
+          <span className="text-[10px] sm:text-[11px] text-gray-400 font-mono">
+            WIZARD {rental.references.wizard}
+          </span>
+          <span className="text-[10px] sm:text-[11px] text-gray-400 font-mono">
+            RES {rental.references.reservation}
+          </span>
+          <span className="text-[10px] sm:text-[11px] text-gray-400 font-mono">
+            MVA {rental.references.mva}
+          </span>
         </div>
 
         {/* Quick Summary Strip */}
@@ -318,6 +510,38 @@ const Dashboard = () => {
               <div className="text-[11px] sm:text-[12px] text-gray-500 truncate">
                 {rental.customer.phone}
               </div>
+              <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                {rental.customer.preferred && (
+                  <span
+                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-medium"
+                    style={{ backgroundColor: "#10b98110", color: "#10b981" }}
+                  >
+                    <svg
+                      className="w-2.5 h-2.5"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    Preferred
+                  </span>
+                )}
+                {rental.customer.company && (
+                  <span
+                    className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-medium"
+                    style={{
+                      backgroundColor: Brand.theme.colors.primary + "10",
+                      color: Brand.theme.colors.primary,
+                    }}
+                  >
+                    {rental.customer.company}
+                  </span>
+                )}
+              </div>
             </div>
             <div>
               <div className="text-[10px] sm:text-[11px] uppercase tracking-wider text-gray-400 font-medium mb-0.5">
@@ -333,6 +557,27 @@ const Dashboard = () => {
                 {rental.vehicle.year} · {rental.vehicle.colour} ·{" "}
                 {rental.vehicle.group}
               </div>
+              {rental.customer.connectedCar && (
+                <div className="mt-1.5">
+                  <span
+                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-medium"
+                    style={{ backgroundColor: "#3b82f610", color: "#3b82f6" }}
+                  >
+                    <svg
+                      className="w-2.5 h-2.5"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M5.05 3.636a1 1 0 010 1.414 7 7 0 000 9.9 1 1 0 11-1.414 1.414 9 9 0 010-12.728 1 1 0 011.414 0zm9.9 0a1 1 0 011.414 0 9 9 0 010 12.728 1 1 0 11-1.414-1.414 7 7 0 000-9.9 1 1 0 010-1.414zM7.879 6.464a1 1 0 010 1.414 3 3 0 000 4.243 1 1 0 11-1.415 1.414 5 5 0 010-7.07 1 1 0 011.415 0zm4.242 0a1 1 0 011.415 0 5 5 0 010 7.072 1 1 0 01-1.415-1.415 3 3 0 000-4.242 1 1 0 010-1.415zM10 9a1 1 0 100 2 1 1 0 000-2z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    Connected Car
+                  </span>
+                </div>
+              )}
             </div>
             <div>
               <div className="text-[10px] sm:text-[11px] uppercase tracking-wider text-gray-400 font-medium mb-0.5">
@@ -357,7 +602,7 @@ const Dashboard = () => {
                 className="text-[12px] sm:text-[13px] font-semibold"
                 style={{ color: Brand.theme.colors.text.primary }}
               >
-                ${rental.totals.amountDue.toFixed(2)} due
+                £{rental.totals.amountDue.toFixed(2)} due
               </div>
               <div className="text-[11px] sm:text-[12px] text-gray-500 truncate">
                 {rental.payment.card}
@@ -366,8 +611,8 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Timeline - hidden on very small screens */}
-        <div className="px-4 sm:px-6 py-4 sm:py-5 border-t border-gray-100 hidden sm:block">
+        {/* Timeline - mobile/tablet only (desktop shows inline above) */}
+        <div className="px-4 sm:px-6 py-4 sm:py-5 border-t border-gray-100 block md:hidden">
           <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium text-center mb-4">
             Rental Progress
           </div>
@@ -527,7 +772,7 @@ const Dashboard = () => {
       </div>
 
       {/* ═══ TAB CONTENT ═══ */}
-      <div className="flex-1 p-4 sm:p-6 pb-20 animate-fade-in" key={activeTab}>
+      <div className="flex-1 p-4 sm:p-6 pb-6 animate-fade-in" key={activeTab}>
         {activeTab === "overview" && <OverviewTab rental={rental} />}
         {activeTab === "customer" && <CustomerTab rental={rental} />}
         {activeTab === "vehicle" && <VehicleTab rental={rental} />}
@@ -537,7 +782,7 @@ const Dashboard = () => {
 
       {/* ═══ STICKY FOOTER ═══ */}
       <div
-        className="fixed bottom-0 left-0 right-0 h-12 flex items-center justify-between px-4 sm:px-6 border-t z-40 bg-white"
+        className="sticky bottom-0 h-12 flex items-center justify-between px-4 sm:px-6 border-t z-40 bg-white shrink-0"
         style={{ borderColor: "#e5e7eb" }}
       >
         <div className="flex items-center gap-2 sm:gap-3">
@@ -551,7 +796,7 @@ const Dashboard = () => {
           >
             Due{" "}
             <span className="font-bold">
-              ${rental.totals.amountDue.toFixed(2)}
+              £{rental.totals.amountDue.toFixed(2)}
             </span>
           </span>
         </div>
@@ -746,10 +991,10 @@ const OverviewTab = ({ rental }) => (
           <Field label="AWD" value={rental.rental.awd} />
         </div>
         <div className="flex items-center gap-2 sm:gap-3 mt-4 pt-3 border-t border-gray-50 flex-wrap">
-          <RatePill label="Daily" value={`$${rental.rates.daily.toFixed(2)}`} />
+          <RatePill label="Daily" value={`£${rental.rates.daily.toFixed(2)}`} />
           <RatePill
             label="Weekly"
-            value={`$${rental.rates.weekly.toFixed(2)}`}
+            value={`£${rental.rates.weekly.toFixed(2)}`}
           />
           <RatePill label="Free Mi" value={rental.rates.freeMiles} />
         </div>
@@ -975,8 +1220,8 @@ const RentalRatesTab = ({ rental }) => (
       }
     >
       <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-        <RatePill label="Daily" value={`$${rental.rates.daily.toFixed(2)}`} />
-        <RatePill label="Weekly" value={`$${rental.rates.weekly.toFixed(2)}`} />
+        <RatePill label="Daily" value={`£${rental.rates.daily.toFixed(2)}`} />
+        <RatePill label="Weekly" value={`£${rental.rates.weekly.toFixed(2)}`} />
         <RatePill label="Free Mi" value={rental.rates.freeMiles} />
       </div>
     </SectionCard>
@@ -1035,11 +1280,11 @@ const PaymentTab = ({ rental }) => (
         <div className="grid grid-cols-2 gap-x-6">
           <Field
             label="Estimated Total"
-            value={`$${rental.totals.estTotal.toFixed(2)}`}
+            value={`£${rental.totals.estTotal.toFixed(2)}`}
           />
           <Field
             label="Prepayment"
-            value={`$${rental.totals.prepayment.toFixed(2)}`}
+            value={`£${rental.totals.prepayment.toFixed(2)}`}
           />
         </div>
         <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between">
@@ -1053,7 +1298,7 @@ const PaymentTab = ({ rental }) => (
             className="text-xl font-bold"
             style={{ color: Brand.theme.colors.primary }}
           >
-            ${rental.totals.amountDue.toFixed(2)}
+            £{rental.totals.amountDue.toFixed(2)}
           </span>
         </div>
       </SectionCard>
@@ -1078,21 +1323,21 @@ const PaymentTab = ({ rental }) => (
       }
     >
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6">
-        <Field label="CSC" value={`$${rental.charges.csc}`} />
-        <Field label="Money Off" value={`$${rental.charges.moneyOff}`} />
+        <Field label="CSC" value={`£${rental.charges.csc}`} />
+        <Field label="Money Off" value={`£${rental.charges.moneyOff}`} />
         <Field
           label="Coupon Amount"
-          value={`$${rental.charges.couponAmount}`}
+          value={`£${rental.charges.couponAmount}`}
         />
-        <Field label="Parking" value={`$${rental.charges.parking}`} />
-        <Field label="Child Seat" value={`$${rental.charges.childSeat}`} />
-        <Field label="Towing" value={`$${rental.charges.towing}`} />
+        <Field label="Parking" value={`£${rental.charges.parking}`} />
+        <Field label="Child Seat" value={`£${rental.charges.childSeat}`} />
+        <Field label="Towing" value={`£${rental.charges.towing}`} />
         <Field
           label="Accident Repairs"
-          value={`$${rental.charges.accidentRepairs}`}
+          value={`£${rental.charges.accidentRepairs}`}
         />
-        <Field label="Luggage Rack" value={`$${rental.charges.luggageRack}`} />
-        <Field label="Others" value={`$${rental.charges.others}`} />
+        <Field label="Luggage Rack" value={`£${rental.charges.luggageRack}`} />
+        <Field label="Others" value={`£${rental.charges.others}`} />
       </div>
     </SectionCard>
   </div>

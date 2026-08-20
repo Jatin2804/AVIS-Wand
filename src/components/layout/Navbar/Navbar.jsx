@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import Brand from "../../../brands";
-import rentalService from "../../../services/rentalService";
+import wandService from "../../../services/wandService";
 
 const Navbar = () => {
   const navigate = useNavigate();
@@ -9,6 +9,7 @@ const Navbar = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
   const [results, setResults] = useState([]);
+  const [searching, setSearching] = useState(false);
   const [activeMode, setActiveMode] = useState("display");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -16,14 +17,50 @@ const Navbar = () => {
   const dashboardMatch = location.pathname.match(/\/dashboard\/(.+)/);
   const currentRA = dashboardMatch ? dashboardMatch[1] : null;
 
+  // Search via API when user stops typing
   useEffect(() => {
-    if (searchQuery.trim()) {
-      setResults(rentalService.search(searchQuery));
-      setShowDropdown(true);
-    } else {
+    if (!searchQuery.trim()) {
       setResults([]);
       setShowDropdown(false);
+      return;
     }
+
+    const timer = setTimeout(async () => {
+      setSearching(true);
+      setShowDropdown(true);
+      try {
+        const data = await wandService.searchRental(searchQuery.trim());
+        if (data?.rentalData && data.rentalData.raNum) {
+          const r = data.rentalData;
+          setResults([
+            {
+              ra: r.raNum,
+              name: r.fullName,
+              status: r.rentalAlive ? "open" : "closed",
+              vehicle: `${r.year} ${r.color} ${r.make} ${r.model}`.trim(),
+            },
+          ]);
+        } else if (data?.multiple) {
+          // Multiple results — show generic entry
+          setResults([
+            {
+              ra: searchQuery.trim(),
+              name: "Multiple results found",
+              status: "open",
+            },
+          ]);
+        } else {
+          setResults([]);
+        }
+      } catch (err) {
+        console.error("Search error:", err);
+        setResults([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 600);
+
+    return () => clearTimeout(timer);
   }, [searchQuery]);
 
   useEffect(() => {
@@ -47,6 +84,14 @@ const Navbar = () => {
     navigate(`/dashboard/${raNumber}`);
   };
 
+  const handleSearchKeyDown = (e) => {
+    if (e.key === "Enter" && searchQuery.trim()) {
+      setShowDropdown(false);
+      navigate(`/dashboard/${searchQuery.trim()}`);
+      setSearchQuery("");
+    }
+  };
+
   return (
     <>
       <nav
@@ -58,7 +103,7 @@ const Navbar = () => {
           {/* Hamburger — mobile only */}
           <button
             onClick={() => setSidebarOpen(true)}
-            className="sm:hidden w-8 h-8 flex items-center justify-center text-gray-600 rounded-md hover:bg-gray-100"
+            className="md:hidden w-8 h-8 flex items-center justify-center text-gray-600 rounded-md hover:bg-gray-100"
           >
             <svg
               className="w-5 h-5"
@@ -93,7 +138,7 @@ const Navbar = () => {
 
         {/* Center: Search Box — hidden on mobile */}
         <div
-          className="relative flex-1 max-w-md mx-4 hidden sm:block"
+          className="relative flex-1 max-w-md mx-4 hidden md:block"
           ref={dropdownRef}
         >
           <div className="relative flex items-center">
@@ -117,6 +162,7 @@ const Navbar = () => {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
               onFocus={() => searchQuery.trim() && setShowDropdown(true)}
               placeholder={currentRA || "Search RA number or customer..."}
               className="w-full pl-9 pr-16 py-2 text-[13px] border rounded-lg focus:outline-none"
@@ -149,9 +195,15 @@ const Navbar = () => {
               className="absolute top-full left-0 right-0 mt-1.5 rounded-lg border shadow-lg overflow-hidden animate-fade-in bg-white"
               style={{ borderColor: "#e5e7eb" }}
             >
-              {results.length === 0 ? (
+              {searching ? (
+                <div className="px-4 py-3 text-[13px] text-gray-400 flex items-center gap-2">
+                  <div className="w-3 h-3 border border-gray-300 border-t-red-500 rounded-full animate-spin" />
+                  Searching WAND...
+                </div>
+              ) : results.length === 0 ? (
                 <div className="px-4 py-3 text-[13px] text-gray-500">
                   No results for &ldquo;{searchQuery}&rdquo;
+                  <span className="block text-[11px] text-gray-400 mt-0.5">Press Enter to search by RA number</span>
                 </div>
               ) : (
                 results.map((r) => (
@@ -204,9 +256,9 @@ const Navbar = () => {
         </div>
 
         {/* Right: Desktop buttons */}
-        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+        <div className="flex items-center gap-1 md:gap-2 shrink-0">
           {/* Display / Modify toggle */}
-          <div className="hidden sm:flex items-center border border-gray-300 rounded-lg overflow-hidden">
+          <div className="hidden lg:flex items-center border border-gray-300 rounded-lg overflow-hidden">
             <button
               onClick={() => setActiveMode("display")}
               className="px-3 sm:px-4 py-1.5 sm:py-2 text-[12px] sm:text-[13px] font-medium"
@@ -242,7 +294,7 @@ const Navbar = () => {
           </div>
 
           {/* Actions button */}
-          <button className="hidden md:flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 text-[13px] font-medium text-gray-700 hover:bg-gray-50">
+          <button className="hidden lg:flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 text-[13px] font-medium text-gray-700 hover:bg-gray-50">
             <svg
               className="w-4 h-4"
               fill="none"
@@ -263,7 +315,7 @@ const Navbar = () => {
           </button>
 
           {/* Help icon */}
-          <button className="hidden sm:flex w-9 h-9 rounded-lg border border-gray-300 items-center justify-center text-gray-500 hover:bg-gray-50">
+          <button className="hidden lg:flex w-9 h-9 rounded-lg border border-gray-300 items-center justify-center text-gray-500 hover:bg-gray-50">
             <svg
               className="w-4 h-4"
               fill="none"
@@ -281,7 +333,7 @@ const Navbar = () => {
           </button>
 
           {/* Theme toggle */}
-          <button className="hidden sm:flex w-9 h-9 rounded-lg border border-gray-300 items-center justify-center text-gray-500 hover:bg-gray-50">
+          <button className="hidden lg:flex w-9 h-9 rounded-lg border border-gray-300 items-center justify-center text-gray-500 hover:bg-gray-50">
             <svg
               className="w-4 h-4"
               fill="none"
@@ -303,7 +355,7 @@ const Navbar = () => {
               localStorage.removeItem("token");
               navigate("/login");
             }}
-            className="btn-press hidden sm:block ml-1 px-4 py-2 text-[13px] font-medium rounded-lg"
+            className="btn-press hidden md:block ml-1 px-4 py-2 text-[13px] font-medium rounded-lg"
             style={{
               backgroundColor: Brand.theme.colors.primary,
               color: "#fff",
@@ -316,7 +368,7 @@ const Navbar = () => {
 
       {/* ═══ MOBILE SIDEBAR ═══ */}
       {sidebarOpen && (
-        <div className="fixed inset-0 z-[100] sm:hidden">
+        <div className="fixed inset-0 z-[100] md:hidden">
           {/* Backdrop */}
           <div
             className="absolute inset-0 bg-black/40"
