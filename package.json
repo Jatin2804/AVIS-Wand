@@ -13,7 +13,10 @@
     "preview": "vite preview",
     "preview:avis": "vite preview --mode avis",
     "preview:budget": "vite preview --mode budget",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "proxystart": "npm install http-proxy --save-optional",
+    "proxy:preprod": "set TARGET=preprod&& node proxy-server-internet.cjs",
+    "proxy": "node proxy-server-internet.cjs"
   },
   "dependencies": {
     "@reduxjs/toolkit": "^2.12.0",
@@ -35,5 +38,8 @@
     "globals": "^17.7.0",
     "tailwindcss": "^4.3.3",
     "vite": "^8.2.0"
+  },
+  "optionalDependencies": {
+    "http-proxy": "^1.18.1"
   }
 }

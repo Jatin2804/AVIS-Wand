@@ -1,8 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { useState } from "react";
 import Navbar from "./components/layout/Navbar/Navbar";
 import Login from "./pages/Login/Login";
-import Reservations from "./pages/Reservations/Reservations";
 import Dashboard from "./pages/Dashboard/Dashboard";
 
 function ProtectedRoute({ children }) {
@@ -11,31 +9,13 @@ function ProtectedRoute({ children }) {
 }
 
 function AppLayout() {
-  const [navSearchRA, setNavSearchRA] = useState(null);
-
-  const handleNavSelect = (raNumber) => {
-    setNavSearchRA(raNumber);
-  };
-
-  const clearNavSearch = () => {
-    setNavSearchRA(null);
-  };
-
   return (
     <>
-      <Navbar onSelectRental={handleNavSelect} />
+      <Navbar />
       <Routes>
-        <Route
-          path="/reservations"
-          element={
-            <Reservations
-              navSelectedRA={navSearchRA}
-              onClearNavSearch={clearNavSearch}
-            />
-          }
-        />
+        <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/dashboard/:raNumber" element={<Dashboard />} />
-        <Route path="*" element={<Navigate to="/reservations" replace />} />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </>
   );

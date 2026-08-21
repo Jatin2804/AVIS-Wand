@@ -6,6 +6,9 @@ import wandService from "../../../services/wandService";
 const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [isDark, setIsDark] = useState(
+    document.documentElement.classList.contains("dark"),
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
   const [results, setResults] = useState([]);
@@ -81,13 +84,13 @@ const Navbar = () => {
   const handleSelect = (raNumber) => {
     setSearchQuery("");
     setShowDropdown(false);
-    navigate(`/dashboard/${raNumber}`);
+    navigate(`/dashboard/${raNumber}`, { replace: true });
   };
 
   const handleSearchKeyDown = (e) => {
     if (e.key === "Enter" && searchQuery.trim()) {
       setShowDropdown(false);
-      navigate(`/dashboard/${searchQuery.trim()}`);
+      navigate(`/dashboard/${searchQuery.trim()}`, { replace: true });
       setSearchQuery("");
     }
   };
@@ -203,7 +206,9 @@ const Navbar = () => {
               ) : results.length === 0 ? (
                 <div className="px-4 py-3 text-[13px] text-gray-500">
                   No results for &ldquo;{searchQuery}&rdquo;
-                  <span className="block text-[11px] text-gray-400 mt-0.5">Press Enter to search by RA number</span>
+                  <span className="block text-[11px] text-gray-400 mt-0.5">
+                    Press Enter to search by RA number
+                  </span>
                 </div>
               ) : (
                 results.map((r) => (
@@ -257,42 +262,6 @@ const Navbar = () => {
 
         {/* Right: Desktop buttons */}
         <div className="flex items-center gap-1 md:gap-2 shrink-0">
-          {/* Display / Modify toggle */}
-          <div className="hidden lg:flex items-center border border-gray-300 rounded-lg overflow-hidden">
-            <button
-              onClick={() => setActiveMode("display")}
-              className="px-3 sm:px-4 py-1.5 sm:py-2 text-[12px] sm:text-[13px] font-medium"
-              style={{
-                backgroundColor:
-                  activeMode === "display"
-                    ? Brand.theme.colors.text.primary
-                    : "transparent",
-                color:
-                  activeMode === "display"
-                    ? "#fff"
-                    : Brand.theme.colors.text.secondary,
-              }}
-            >
-              Display
-            </button>
-            <button
-              onClick={() => setActiveMode("modify")}
-              className="px-3 sm:px-4 py-1.5 sm:py-2 text-[12px] sm:text-[13px] font-medium"
-              style={{
-                backgroundColor:
-                  activeMode === "modify"
-                    ? Brand.theme.colors.text.primary
-                    : "transparent",
-                color:
-                  activeMode === "modify"
-                    ? "#fff"
-                    : Brand.theme.colors.text.secondary,
-              }}
-            >
-              Modify
-            </button>
-          </div>
-
           {/* Actions button */}
           <button className="hidden lg:flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 text-[13px] font-medium text-gray-700 hover:bg-gray-50">
             <svg
@@ -333,20 +302,44 @@ const Navbar = () => {
           </button>
 
           {/* Theme toggle */}
-          <button className="hidden lg:flex w-9 h-9 rounded-lg border border-gray-300 items-center justify-center text-gray-500 hover:bg-gray-50">
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"
-              />
-            </svg>
+          <button
+            onClick={() => {
+              document.documentElement.classList.toggle("dark");
+              const dark = document.documentElement.classList.contains("dark");
+              setIsDark(dark);
+              localStorage.setItem("theme", dark ? "dark" : "light");
+            }}
+            className="hidden md:flex w-9 h-9 rounded-lg border border-gray-300 items-center justify-center text-gray-500 hover:bg-gray-50"
+          >
+            {isDark ? (
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
+                />
+              </svg>
+            ) : (
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"
+                />
+              </svg>
+            )}
           </button>
 
           {/* Sign Out — hidden on mobile (available in sidebar) */}
@@ -417,6 +410,15 @@ const Navbar = () => {
                 style={{ color: Brand.theme.colors.text.primary }}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && searchQuery.trim()) {
+                    setSidebarOpen(false);
+                    navigate(`/dashboard/${searchQuery.trim()}`, {
+                      replace: true,
+                    });
+                    setSearchQuery("");
+                  }
+                }}
               />
             </div>
 
@@ -428,33 +430,53 @@ const Navbar = () => {
                 </p>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => setActiveMode("display")}
+                    onClick={() => {
+                      setActiveMode("display");
+                      document.dispatchEvent(
+                        new CustomEvent("wandMode", { detail: "display" }),
+                      );
+                      setSidebarOpen(false);
+                    }}
                     className="flex-1 py-2 text-[13px] font-medium rounded-lg text-center"
                     style={{
                       backgroundColor:
                         activeMode === "display"
                           ? Brand.theme.colors.text.primary
-                          : "#f3f4f6",
+                          : "var(--bg-surface)",
                       color:
                         activeMode === "display"
                           ? "#fff"
-                          : Brand.theme.colors.text.secondary,
+                          : "var(--text-secondary)",
+                      border:
+                        activeMode === "display"
+                          ? "none"
+                          : "1px solid var(--border-color)",
                     }}
                   >
                     Display
                   </button>
                   <button
-                    onClick={() => setActiveMode("modify")}
+                    onClick={() => {
+                      setActiveMode("modify");
+                      document.dispatchEvent(
+                        new CustomEvent("wandMode", { detail: "modify" }),
+                      );
+                      setSidebarOpen(false);
+                    }}
                     className="flex-1 py-2 text-[13px] font-medium rounded-lg text-center"
                     style={{
                       backgroundColor:
                         activeMode === "modify"
                           ? Brand.theme.colors.text.primary
-                          : "#f3f4f6",
+                          : "var(--bg-surface)",
                       color:
                         activeMode === "modify"
                           ? "#fff"
-                          : Brand.theme.colors.text.secondary,
+                          : "var(--text-secondary)",
+                      border:
+                        activeMode === "modify"
+                          ? "none"
+                          : "1px solid var(--border-color)",
                     }}
                   >
                     Modify
@@ -468,7 +490,7 @@ const Navbar = () => {
                 </p>
                 <button
                   onClick={() => {
-                    navigate("/reservations");
+                    navigate("/dashboard");
                     setSidebarOpen(false);
                   }}
                   className="w-full flex items-center gap-3 px-3 py-2.5 text-[13px] font-medium text-gray-700 rounded-lg hover:bg-gray-50"
@@ -486,7 +508,7 @@ const Navbar = () => {
                       d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                     />
                   </svg>
-                  Reservations
+                  Dashboard
                 </button>
               </div>
 
@@ -494,6 +516,47 @@ const Navbar = () => {
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2">
                   Actions
                 </p>
+                <button
+                  onClick={() => {
+                    document.documentElement.classList.toggle("dark");
+                    const dark =
+                      document.documentElement.classList.contains("dark");
+                    setIsDark(dark);
+                    localStorage.setItem("theme", dark ? "dark" : "light");
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 text-[13px] font-medium text-gray-700 rounded-lg hover:bg-gray-50"
+                >
+                  {isDark ? (
+                    <svg
+                      className="w-4 h-4 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.5}
+                        d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
+                      />
+                    </svg>
+                  ) : (
+                    <svg
+                      className="w-4 h-4 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.5}
+                        d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"
+                      />
+                    </svg>
+                  )}
+                  {isDark ? "Light Mode" : "Dark Mode"}
+                </button>
                 <button className="w-full flex items-center gap-3 px-3 py-2.5 text-[13px] font-medium text-gray-700 rounded-lg hover:bg-gray-50">
                   <svg
                     className="w-4 h-4 text-gray-400"
@@ -510,44 +573,6 @@ const Navbar = () => {
                     <circle cx="12" cy="12" r="10" strokeWidth={1.5} />
                   </svg>
                   Help
-                </button>
-                <button className="w-full flex items-center gap-3 px-3 py-2.5 text-[13px] font-medium text-gray-700 rounded-lg hover:bg-gray-50">
-                  <svg
-                    className="w-4 h-4 text-gray-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.5}
-                      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                    />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.5}
-                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                    />
-                  </svg>
-                  Settings
-                </button>
-                <button className="w-full flex items-center gap-3 px-3 py-2.5 text-[13px] font-medium text-gray-700 rounded-lg hover:bg-gray-50">
-                  <svg
-                    className="w-4 h-4 text-gray-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.5}
-                      d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"
-                    />
-                  </svg>
-                  Theme
                 </button>
               </div>
             </div>

@@ -3,12 +3,10 @@ import axiosInstance from "../api/axiosInstance";
 /**
  * WAND API Service
  * Makes real API calls to the WAND backend via the proxy.
- * The proxy injects session cookies for authentication.
  */
 const wandService = {
   /**
    * Display/fetch a rental by RA number
-   * This is the main endpoint that returns full rental data.
    */
   async displayRental(raNo = "724717980") {
     const params = new URLSearchParams({
@@ -19,15 +17,11 @@ const wandService = {
       "fromCache ": "false",
     });
 
-    const response = await axiosInstance.post(
-      "/rental?brand=Avis&brandCode=A&agentId=14246&selectedModule=DISPLAY-RENTAL&stationMnemonic=LHR",
-      params.toString(),
-      {
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-        },
-      }
-    );
+    const response = await axiosInstance.post("/rental", params.toString(), {
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+    });
     return response.data;
   },
 
@@ -35,14 +29,12 @@ const wandService = {
    * Reset rental (initialize blank form)
    */
   async resetRental() {
-    const response = await axiosInstance.post(
-      "/rental/resetRental?brand=Avis&brandCode=A&agentId=14246&selectedModule=&stationMnemonic=LHR"
-    );
+    const response = await axiosInstance.post("/rental/resetRental");
     return response.data;
   },
 
   /**
-   * Search rentals by various criteria (RA number, reservation number, name, etc.)
+   * Search rentals by various criteria
    */
   async searchRental(searchString) {
     const params = new URLSearchParams({
@@ -60,12 +52,24 @@ const wandService = {
       expressNo: "",
     });
 
+    const response = await axiosInstance.post("/rental", params.toString(), {
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+    });
+    return response.data;
+  },
+
+  /**
+   * Get estimate total for the current rental
+   */
+  async estimateTotal() {
     const response = await axiosInstance.post(
-      "/rental?brand=Avis&brandCode=A&agentId=14246&selectedModule=DISPLAY-RENTAL&stationMnemonic=LHR",
-      params.toString(),
+      "/rental/estimateTotal",
+      {},
       {
         headers: {
-          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+          "Content-Type": "application/json",
         },
       }
     );

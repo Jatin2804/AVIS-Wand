@@ -16,7 +16,7 @@ const Login = () => {
     e.preventDefault();
     if (form.username === "lhr.user" && form.password === "Aug@2026") {
       localStorage.setItem("token", "authenticated");
-      navigate("/reservations");
+      navigate("/dashboard");
     } else {
       setError("Invalid username or password");
     }
@@ -117,7 +117,7 @@ const Login = () => {
                 className="w-full px-4 py-3 text-sm border rounded-xl focus:outline-none transition-all"
                 style={{
                   borderColor: error ? Brand.theme.colors.danger : "#e5e7eb",
-                  backgroundColor: "#fafafa",
+                  backgroundColor: "var(--bg-input)",
                   color: Brand.theme.colors.text.primary,
                   boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
                 }}
@@ -152,7 +152,7 @@ const Login = () => {
                 className="w-full px-4 py-3 text-sm border rounded-xl focus:outline-none transition-all"
                 style={{
                   borderColor: error ? Brand.theme.colors.danger : "#e5e7eb",
-                  backgroundColor: "#fafafa",
+                  backgroundColor: "var(--bg-input)",
                   color: Brand.theme.colors.text.primary,
                   boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
                 }}

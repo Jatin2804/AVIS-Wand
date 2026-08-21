@@ -1,14 +1,135 @@
 @import "tailwindcss";
 
-/* Global custom styles — font is applied via Brand theme at runtime */
+/* ─── Theme Variables ─── */
+:root {
+  --bg-base: #ffffff;
+  --bg-surface: #f9fafb;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f3f4f6;
+  --bg-header: #ffffff;
+  --bg-input: #fafafa;
+  --border-color: #e5e7eb;
+  --border-light: #f3f4f6;
+  --text-primary: #000000;
+  --text-secondary: #4a4a4a;
+  --text-muted: #767676;
+  --text-label: #6b7280;
+  --accent-red: #d4002a;
+  --accent-green: #10b981;
+  --section-header: #ffffff;
+}
+
+:root.dark {
+  --bg-base: #0f1219;
+  --bg-surface: #161b26;
+  --bg-card: #1c2333;
+  --bg-card-hover: #222a3b;
+  --bg-header: #1a2035;
+  --bg-input: #1e2536;
+  --border-color: #2a3345;
+  --border-light: #232d40;
+  --text-primary: #e8eaf0;
+  --text-secondary: #a0a8b8;
+  --text-muted: #6b7585;
+  --text-label: #7a8494;
+  --accent-red: #d4002a;
+  --accent-green: #10b981;
+  --section-header: #162030;
+}
+
+/* Global styles */
 body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+}
+
+/* ─── Dark theme class-based overrides ─── */
+.dark .bg-white {
+  background-color: var(--bg-card) !important;
+}
+.dark .bg-gray-50, .dark .bg-gray-100 {
+  background-color: var(--bg-surface) !important;
+}
+.dark .border-gray-100, .dark .border-gray-200, .dark .border-gray-50 {
+  border-color: var(--border-color) !important;
+}
+.dark .text-gray-400 {
+  color: var(--text-muted) !important;
+}
+.dark .text-gray-500 {
+  color: var(--text-secondary) !important;
+}
+.dark .text-gray-600, .dark .text-gray-700, .dark .text-gray-800, .dark .text-gray-900 {
+  color: var(--text-primary) !important;
+}
+.dark nav {
+  background-color: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+}
+.dark input, .dark select, .dark textarea {
+  background-color: var(--bg-input) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+.dark input::placeholder {
+  color: var(--text-muted) !important;
+}
+.dark input:focus {
+  border-color: var(--accent-red) !important;
+  box-shadow: 0 0 0 2px rgba(212, 0, 42, 0.15) !important;
+}
+.dark table thead tr {
+  background-color: var(--bg-surface) !important;
+}
+.dark table tbody tr {
+  border-color: var(--border-light) !important;
+}
+.dark table tbody tr:hover {
+  background-color: var(--bg-card-hover) !important;
+}
+.dark .row-hover:hover {
+  background-color: var(--bg-card-hover) !important;
+}
+.dark .btn-outline-hover:hover {
+  background-color: var(--bg-card-hover) !important;
+  border-color: var(--border-color) !important;
+}
+.dark .bg-green-50 {
+  background-color: rgba(16, 185, 129, 0.1) !important;
+}
+.dark .bg-red-50 {
+  background-color: rgba(212, 0, 42, 0.1) !important;
+}
+.dark pre, .dark code {
+  background-color: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
+}
+.dark .border-gray-300 {
+  border-color: var(--border-color) !important;
+}
+.dark .hover\:bg-gray-50:hover {
+  background-color: var(--bg-card-hover) !important;
+}
+.dark .hover\:bg-gray-100:hover {
+  background-color: var(--bg-card-hover) !important;
+}
+
+/* Dark scrollbar */
+.dark ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.dark ::-webkit-scrollbar-track {
+  background: var(--bg-base);
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
 }
 
 /* ─── Interactive Transitions ─── */
-
-/* Smooth transitions for all interactive elements */
 button,
 a,
 [role="button"] {
@@ -16,7 +137,6 @@ a,
   cursor: pointer;
 }
 
-/* Card hover lift */
 .card-hover {
   transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
               box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1),
@@ -28,21 +148,15 @@ a,
 }
 .card-hover:active {
   transform: translateY(0px);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
-/* Row highlight */
 .row-hover {
   transition: background-color 0.15s ease, transform 0.15s ease;
 }
 .row-hover:hover {
   background-color: rgba(0, 0, 0, 0.015);
 }
-.row-hover:active {
-  background-color: rgba(0, 0, 0, 0.03);
-}
 
-/* Button press effect */
 .btn-press {
   transition: transform 0.1s ease, box-shadow 0.2s ease, opacity 0.2s ease;
 }
@@ -51,21 +165,17 @@ a,
 }
 .btn-press:active {
   transform: scale(0.96);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-/* Outline button hover */
 .btn-outline-hover {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .btn-outline-hover:hover {
   background-color: rgba(0, 0, 0, 0.03);
   border-color: rgba(0, 0, 0, 0.2);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 .btn-outline-hover:active {
   transform: scale(0.97);
-  background-color: rgba(0, 0, 0, 0.05);
 }
 
 /* Tab underline animation */
@@ -98,13 +208,7 @@ a,
   opacity: 1;
 }
 
-/* Icon spin on hover */
-.icon-spin:hover svg {
-  transition: transform 0.3s ease;
-  transform: rotate(90deg);
-}
-
-/* Pulse animation for status dots */
+/* Pulse animation */
 @keyframes pulse-dot {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
@@ -113,28 +217,16 @@ a,
   animation: pulse-dot 2s ease-in-out infinite;
 }
 
-/* Fade in animation for content */
+/* Fade in */
 @keyframes fade-in-up {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 .animate-fade-in {
   animation: fade-in-up 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
-/* Staggered animation delays */
-.stagger-1 { animation-delay: 0.05s; opacity: 0; }
-.stagger-2 { animation-delay: 0.1s; opacity: 0; }
-.stagger-3 { animation-delay: 0.15s; opacity: 0; }
-.stagger-4 { animation-delay: 0.2s; opacity: 0; }
-
-/* Timeline dot pulse for current */
+/* Timeline pulse */
 @keyframes timeline-pulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(212, 0, 42, 0.3); }
   50% { box-shadow: 0 0 0 6px rgba(212, 0, 42, 0); }
@@ -143,28 +235,26 @@ a,
   animation: timeline-pulse 2s ease-in-out infinite;
 }
 
-/* Tooltip on hover */
-.tooltip-parent {
-  position: relative;
+/* ─── Dark mode inline style overrides ─── */
+/* These override elements that use inline style={{ color: Brand.theme.colors.text.primary }} */
+.dark [style*="color: rgb(31, 41, 55)"],
+.dark [style*="color: #1f2937"],
+.dark [style*="color: rgb(0, 0, 0)"],
+.dark [style*="color: #000000"] {
+  color: var(--text-primary) !important;
 }
-.tooltip-parent::before {
-  content: attr(data-tooltip);
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%) translateY(4px);
-  padding: 4px 8px;
-  border-radius: 6px;
-  background: #1f2937;
-  color: #fff;
-  font-size: 11px;
-  font-weight: 500;
-  white-space: nowrap;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s ease, transform 0.2s ease;
+.dark [style*="color: rgb(74, 74, 74)"],
+.dark [style*="color: #4a4a4a"] {
+  color: var(--text-secondary) !important;
 }
-.tooltip-parent:hover::before {
-  opacity: 1;
-  transform: translateX(-50%) translateY(-4px);
+.dark [style*="background-color: rgb(255, 255, 255)"],
+.dark [style*="backgroundColor: rgb(255, 255, 255)"],
+.dark [style*="background-color: #ffffff"],
+.dark [style*="background-color: #fff"] {
+  background-color: var(--bg-card) !important;
+}
+.dark [style*="border-color: rgb(229, 231, 235)"],
+.dark [style*="borderColor: rgb(229, 231, 235)"],
+.dark [style*="border-color: #e5e7eb"] {
+  border-color: var(--border-color) !important;
 }

@@ -32,9 +32,9 @@ const TagBadge = ({ label, color = "#10b981" }) => (
   </span>
 );
 
-const SectionCard = ({ title, icon, editLabel = "Edit", children }) => (
+const SectionCard = ({ title, icon, children }) => (
   <div className="w-full bg-white rounded-xl border border-gray-100 overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-    <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-50 flex items-center justify-between">
+    <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-50">
       <div className="flex items-center gap-2">
         <span className="text-gray-400">{icon}</span>
         <h3
@@ -44,52 +44,45 @@ const SectionCard = ({ title, icon, editLabel = "Edit", children }) => (
           {title}
         </h3>
       </div>
-      <button
-        className="btn-outline-hover text-[12px] font-medium flex items-center gap-1 px-2.5 py-1 rounded-md"
-        style={{ color: Brand.theme.colors.primary }}
-      >
-        {editLabel}
-        <svg
-          className="w-3 h-3"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M9 5l7 7-7 7"
-          />
-        </svg>
-      </button>
     </div>
     <div className="px-4 sm:px-6 py-4 sm:py-5">{children}</div>
   </div>
 );
 
-const Field = ({ label, value, bold = false }) => (
+const Field = ({ label, value, bold = false, editable = false }) => (
   <div className="py-2">
     <div className="text-[11px] font-medium uppercase tracking-wider text-gray-400 mb-0.5">
       {label}
     </div>
-    <div
-      className={`text-[13px] leading-snug break-words ${bold ? "font-semibold" : "font-medium"}`}
-      style={{ color: Brand.theme.colors.text.primary }}
-    >
-      {value || "—"}
-    </div>
+    {editable ? (
+      <input
+        type="text"
+        defaultValue={value || ""}
+        className={`w-full text-[13px] leading-snug break-words px-2 py-1 border border-gray-200 rounded-md focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 ${bold ? "font-semibold" : "font-medium"}`}
+        style={{ color: Brand.theme.colors.text.primary }}
+      />
+    ) : (
+      <div
+        className={`text-[13px] leading-snug break-words ${bold ? "font-semibold" : "font-medium"}`}
+        style={{ color: Brand.theme.colors.text.primary }}
+      >
+        {value || "—"}
+      </div>
+    )}
   </div>
 );
 
 const RatePill = ({ label, value }) => (
-  <div className="flex flex-col items-center px-4 py-2 rounded-lg bg-gray-50/80 border border-gray-100">
+  <div
+    className="flex flex-col items-center px-4 py-2 rounded-lg border border-gray-100"
+    style={{ backgroundColor: "var(--bg-surface)" }}
+  >
     <span className="text-[10px] uppercase tracking-wider text-gray-400 font-medium">
       {label}
     </span>
     <span
       className="text-sm font-bold mt-0.5"
-      style={{ color: Brand.theme.colors.text.primary }}
+      style={{ color: "var(--text-primary)" }}
     >
       {value}
     </span>
@@ -118,10 +111,20 @@ const Dashboard = () => {
   const { raNumber } = useParams();
   const navigate = useNavigate();
   const [rental, setRental] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(raNumber ? true : false);
   const [activeTab, setActiveTab] = useState("overview");
+  const [activeMode, setActiveMode] = useState("display");
+  const [showEstimate, setShowEstimate] = useState(false);
+  const [estimateData, setEstimateData] = useState(null);
+  const [estimateLoading, setEstimateLoading] = useState(false);
 
   useEffect(() => {
+    if (!raNumber) {
+      setLoading(false);
+      setRental(null);
+      return;
+    }
+
     // Parse currency values that may contain HTML entities like &#163; for £
     const parseCurrency = (val) => {
       if (!val) return 0;
@@ -130,6 +133,7 @@ const Dashboard = () => {
       return parseFloat(decoded.replace(/[^0-9.]/g, "")) || 0;
     };
 
+    setLoading(true);
     const fetchRental = async () => {
       try {
         const data = await wandService.displayRental(raNumber);
@@ -240,11 +244,62 @@ const Dashboard = () => {
     fetchRental();
   }, [raNumber]);
 
+  // Keyboard navigation for tabs (left/right arrow keys)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")
+        return;
+      const tabIds = [
+        "overview",
+        "customer",
+        "vehicle",
+        "rental",
+        "payment",
+        "adjustments",
+        "protections",
+        "miscCharges",
+        "products",
+      ];
+      const currentIndex = tabIds.indexOf(activeTab);
+      if (e.key === "ArrowRight" && currentIndex < tabIds.length - 1) {
+        setActiveTab(tabIds[currentIndex + 1]);
+      } else if (e.key === "ArrowLeft" && currentIndex > 0) {
+        setActiveTab(tabIds[currentIndex - 1]);
+      }
+      // D key for Display, M key for Modify (only when not in input)
+      if (e.key === "d" || e.key === "D") {
+        setActiveMode("display");
+      } else if (e.key === "m" || e.key === "M") {
+        setActiveMode("modify");
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    const handleModeChange = (e) => setActiveMode(e.detail);
+    document.addEventListener("wandMode", handleModeChange);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("wandMode", handleModeChange);
+    };
+  }, [activeTab]);
+
+  const handleEstimate = async () => {
+    setEstimateLoading(true);
+    setShowEstimate(true);
+    try {
+      const data = await wandService.estimateTotal();
+      setEstimateData(data);
+    } catch (err) {
+      console.error("Estimate error:", err);
+    } finally {
+      setEstimateLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div
         className="flex items-center justify-center min-h-[calc(100vh-64px)]"
-        style={{ backgroundColor: "#fafafa" }}
+        style={{ backgroundColor: "var(--bg-base)" }}
       >
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-gray-300 border-t-red-500 rounded-full animate-spin mx-auto mb-3" />
@@ -258,16 +313,15 @@ const Dashboard = () => {
     return (
       <div
         className="flex flex-col items-center justify-center min-h-[calc(100vh-64px)] px-4"
-        style={{ backgroundColor: "#fafafa" }}
+        style={{ backgroundColor: "var(--bg-base)" }}
       >
         <div className="text-center">
           <div
-            className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-5"
-            style={{ backgroundColor: Brand.theme.colors.danger + "08" }}
+            className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5"
+            style={{ backgroundColor: "var(--bg-card)" }}
           >
             <svg
-              className="w-7 h-7"
-              style={{ color: Brand.theme.colors.danger }}
+              className="w-8 h-8 text-gray-400"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -276,7 +330,7 @@ const Dashboard = () => {
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={1.5}
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
               />
             </svg>
           </div>
@@ -284,24 +338,20 @@ const Dashboard = () => {
             className="text-lg font-semibold"
             style={{ color: Brand.theme.colors.text.primary }}
           >
-            Rental Not Found
+            Display Rental
           </h2>
           <p className="mt-2 text-sm text-gray-500">
-            No rental agreement found for{" "}
-            <span className="font-mono font-medium text-gray-700">
-              {raNumber}
-            </span>
+            {raNumber ? (
+              <>
+                No rental found for{" "}
+                <span className="font-mono font-medium text-gray-700">
+                  {raNumber}
+                </span>
+              </>
+            ) : (
+              "Search for a reservation in the search bar to begin"
+            )}
           </p>
-          <button
-            onClick={() => navigate("/reservations")}
-            className="mt-6 px-5 py-2.5 text-sm font-medium rounded-lg"
-            style={{
-              backgroundColor: Brand.theme.colors.primary,
-              color: "#fff",
-            }}
-          >
-            Back to Reservations
-          </button>
         </div>
       </div>
     );
@@ -320,12 +370,16 @@ const Dashboard = () => {
     { id: "vehicle", label: "Vehicle" },
     { id: "rental", label: "Rental & Rates" },
     { id: "payment", label: "Payment" },
+    { id: "adjustments", label: "Adjustments" },
+    { id: "protections", label: "Protections" },
+    { id: "miscCharges", label: "Misc Charges" },
+    { id: "products", label: "Products" },
   ];
 
   return (
     <div
       className="min-h-[calc(100vh-56px)] flex flex-col"
-      style={{ backgroundColor: "#f9fafb" }}
+      style={{ backgroundColor: "var(--bg-base)" }}
     >
       {/* ═══ HEADER ═══ */}
       <div className="bg-white border-b border-gray-200">
@@ -363,7 +417,7 @@ const Dashboard = () => {
             </div>
 
             {/* Timeline — inline on desktop, hidden on mobile (shown below instead) */}
-            <div className="hidden md:flex flex-1 items-center justify-center mx-4 max-w-xl">
+            <div className="hidden lg:flex flex-1 items-center justify-center mx-4 max-w-xl">
               <div className="flex items-center w-full">
                 {rental.timeline.map((step, i) => (
                   <div
@@ -496,7 +550,7 @@ const Dashboard = () => {
 
         {/* Quick Summary Strip */}
         <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-gray-100">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <div>
               <div className="text-[10px] sm:text-[11px] uppercase tracking-wider text-gray-400 font-medium mb-0.5">
                 Customer
@@ -611,72 +665,71 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Timeline - mobile/tablet only (desktop shows inline above) */}
-        <div className="px-4 sm:px-6 py-4 sm:py-5 border-t border-gray-100 block md:hidden">
-          <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium text-center mb-4">
+        {/* Timeline - mobile/tablet only (vertical stepper) */}
+        <div className="px-4 sm:px-6 py-4 sm:py-5 border-t border-gray-100 block lg:hidden">
+          <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-3">
             Rental Progress
           </div>
-          <div className="flex items-center justify-center max-w-2xl mx-auto">
+          <div className="flex items-center gap-0">
             {rental.timeline.map((step, i) => (
               <div
                 key={step.key}
-                className="flex items-center flex-1 last:flex-initial"
+                className="flex items-center flex-1 last:flex-0"
               >
+                {/* Dot */}
                 <div className="flex flex-col items-center">
                   {step.current ? (
                     <div
-                      className="w-7 h-7 rounded-full flex items-center justify-center z-10 timeline-current"
+                      className="w-6 h-6 rounded-full flex items-center justify-center timeline-current"
                       style={{ backgroundColor: Brand.theme.colors.primary }}
                     >
                       <svg
-                        className="w-4 h-4 text-white"
+                        className="w-3 h-3 text-white"
                         fill="currentColor"
-                        viewBox="0 0 24 24"
+                        viewBox="0 0 20 20"
                       >
-                        <path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z" />
+                        <path
+                          fillRule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                          clipRule="evenodd"
+                        />
                       </svg>
                     </div>
                   ) : (
                     <div
-                      className="w-3 h-3 rounded-full border-2"
+                      className="w-3 h-3 rounded-full"
                       style={{
-                        backgroundColor: step.done ? "#4caf50" : "#fff",
-                        borderColor: step.done ? "#4caf50" : "#d1d5db",
+                        backgroundColor: step.done
+                          ? "#4caf50"
+                          : "var(--border-color)",
                       }}
                     />
                   )}
                   <span
-                    className="text-[10px] sm:text-[11px] mt-2 capitalize whitespace-nowrap font-medium"
+                    className="text-[9px] mt-1 capitalize whitespace-nowrap font-medium"
                     style={{
                       color: step.current
                         ? Brand.theme.colors.primary
                         : step.done
-                          ? "#374151"
-                          : "#9ca3af",
+                          ? "var(--text-primary)"
+                          : "var(--text-muted)",
                     }}
                   >
                     {step.key === "checkedOut"
-                      ? "Checked Out"
+                      ? "Out"
                       : step.key === "onRental"
-                        ? "On Rental"
+                        ? "Rental"
                         : step.key}
                   </span>
-                  <span
-                    className="text-[9px] sm:text-[10px]"
-                    style={{
-                      color: step.current
-                        ? Brand.theme.colors.primary
-                        : "#9ca3af",
-                    }}
-                  >
-                    {step.sub}
-                  </span>
                 </div>
+                {/* Line */}
                 {i < rental.timeline.length - 1 && (
                   <div
-                    className="flex-1 h-[2px] mx-1 sm:mx-2 -mt-5"
+                    className="flex-1 h-[2px] mx-1 -mt-3"
                     style={{
-                      backgroundColor: step.done ? "#4caf50" : "#e5e7eb",
+                      backgroundColor: step.done
+                        ? "#4caf50"
+                        : "var(--border-color)",
                     }}
                   />
                 )}
@@ -726,12 +779,52 @@ const Dashboard = () => {
               </svg>
               Exchange
             </button>
-            <button className="btn-outline-hover flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-[11px] sm:text-[12px] font-medium rounded-lg border border-gray-200 text-gray-600">
+            <button
+              onClick={handleEstimate}
+              className="btn-outline-hover flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-[11px] sm:text-[12px] font-medium rounded-lg border border-gray-200 text-gray-600"
+            >
               Estimate
             </button>
             <button className="btn-outline-hover flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-[11px] sm:text-[12px] font-medium rounded-lg border border-gray-200 text-gray-600 hidden sm:flex">
               Print
             </button>
+            {/* Display / Modify toggle */}
+            <div className="hidden sm:flex items-center ml-2">
+              <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
+                <button
+                  onClick={() => setActiveMode("display")}
+                  className="px-3 py-1.5 text-[11px] sm:text-[12px] font-medium"
+                  style={{
+                    backgroundColor:
+                      activeMode === "display"
+                        ? Brand.theme.colors.primary
+                        : "transparent",
+                    color:
+                      activeMode === "display"
+                        ? "#fff"
+                        : "var(--text-secondary)",
+                  }}
+                >
+                  Display <span className="text-[9px] opacity-60">D</span>
+                </button>
+                <button
+                  onClick={() => setActiveMode("modify")}
+                  className="px-3 py-1.5 text-[11px] sm:text-[12px] font-medium"
+                  style={{
+                    backgroundColor:
+                      activeMode === "modify"
+                        ? Brand.theme.colors.primary
+                        : "transparent",
+                    color:
+                      activeMode === "modify"
+                        ? "#fff"
+                        : "var(--text-secondary)",
+                  }}
+                >
+                  Modify <span className="text-[9px] opacity-60">M</span>
+                </button>
+              </div>
+            </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
             <button className="text-[11px] sm:text-[12px] font-medium text-gray-400 hover:text-gray-600">
@@ -773,12 +866,180 @@ const Dashboard = () => {
 
       {/* ═══ TAB CONTENT ═══ */}
       <div className="flex-1 p-4 sm:p-6 pb-6 animate-fade-in" key={activeTab}>
-        {activeTab === "overview" && <OverviewTab rental={rental} />}
-        {activeTab === "customer" && <CustomerTab rental={rental} />}
-        {activeTab === "vehicle" && <VehicleTab rental={rental} />}
-        {activeTab === "rental" && <RentalRatesTab rental={rental} />}
-        {activeTab === "payment" && <PaymentTab rental={rental} />}
+        {activeTab === "overview" && (
+          <OverviewTab rental={rental} editable={activeMode === "modify"} />
+        )}
+        {activeTab === "customer" && (
+          <CustomerTab rental={rental} editable={activeMode === "modify"} />
+        )}
+        {activeTab === "vehicle" && (
+          <VehicleTab rental={rental} editable={activeMode === "modify"} />
+        )}
+        {activeTab === "rental" && (
+          <RentalRatesTab rental={rental} editable={activeMode === "modify"} />
+        )}
+        {activeTab === "payment" && (
+          <PaymentTab rental={rental} editable={activeMode === "modify"} />
+        )}
+        {activeTab === "adjustments" && (
+          <AdjustmentsTab rental={rental} editable={activeMode === "modify"} />
+        )}
+        {activeTab === "protections" && (
+          <ProtectionsTab rental={rental} editable={activeMode === "modify"} />
+        )}
+        {activeTab === "miscCharges" && (
+          <MiscChargesTab rental={rental} editable={activeMode === "modify"} />
+        )}
+        {activeTab === "products" && (
+          <ProductsTab rental={rental} editable={activeMode === "modify"} />
+        )}
       </div>
+
+      {/* ═══ ESTIMATE TOTAL MODAL ═══ */}
+      {showEstimate && (
+        <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setShowEstimate(false)}
+          />
+          <div className="relative bg-white rounded-t-xl sm:rounded-xl shadow-2xl w-full sm:max-w-2xl sm:mx-4 max-h-[90vh] sm:max-h-[80vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="sticky top-0 bg-white px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100 flex items-center justify-between rounded-t-xl">
+              <div>
+                <h2
+                  className="text-base font-bold"
+                  style={{ color: Brand.theme.colors.text.primary }}
+                >
+                  Estimate Total
+                </h2>
+                {rental && (
+                  <p className="text-[12px] text-gray-500 mt-0.5">
+                    RA# {rental.raNumber} · {rental.customer.fullName}
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={() => setShowEstimate(false)}
+                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400"
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="px-4 sm:px-6 py-4 sm:py-5 overflow-auto">
+              {estimateLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="w-6 h-6 border-2 border-gray-300 border-t-red-500 rounded-full animate-spin" />
+                  <span className="ml-3 text-sm text-gray-500">
+                    Calculating estimate...
+                  </span>
+                </div>
+              ) : estimateData?.dispormodMB ? (
+                <div
+                  className="overflow-x-auto rounded-lg border"
+                  style={{ borderColor: "var(--border-color)" }}
+                >
+                  <table className="w-full text-[11px] sm:text-[12px] font-mono">
+                    <tbody>
+                      {(
+                        estimateData.dispormodMB.outMessage ||
+                        estimateData.dispormodMB.outString ||
+                        ""
+                      )
+                        .split("\n")
+                        .filter((line) => line.trim())
+                        .map((line, i) => {
+                          const isHighlight =
+                            /AMOUNT DUE|NET TIME \+ DISTANCE/i.test(line);
+                          const isTotal = /TOTAL CHARGE|NET CHARGES/i.test(
+                            line,
+                          );
+                          const parts = line
+                            .split(/\s{3,}/)
+                            .filter((p) => p.trim());
+                          return (
+                            <tr
+                              key={i}
+                              className={isHighlight ? "bg-green-50" : ""}
+                              style={{
+                                borderBottom: "1px solid var(--border-light)",
+                              }}
+                            >
+                              {parts.length >= 2 ? (
+                                <>
+                                  <td
+                                    className={`px-3 py-2 ${isHighlight ? "font-bold" : isTotal ? "font-semibold" : ""}`}
+                                    style={{
+                                      color: isHighlight
+                                        ? "#059669"
+                                        : "var(--text-primary)",
+                                    }}
+                                  >
+                                    {parts.slice(0, -1).join("   ")}
+                                  </td>
+                                  <td
+                                    className={`px-3 py-2 text-right whitespace-nowrap ${isHighlight ? "font-bold" : isTotal ? "font-semibold" : ""}`}
+                                    style={{
+                                      color: isHighlight
+                                        ? "#059669"
+                                        : "var(--text-primary)",
+                                    }}
+                                  >
+                                    {parts[parts.length - 1]}
+                                  </td>
+                                </>
+                              ) : (
+                                <td
+                                  colSpan={2}
+                                  className={`px-3 py-2 ${isHighlight ? "font-bold" : isTotal ? "font-semibold" : ""}`}
+                                  style={{
+                                    color: isHighlight
+                                      ? "#059669"
+                                      : "var(--text-primary)",
+                                  }}
+                                >
+                                  {line.trim()}
+                                </td>
+                              )}
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500 text-center py-8">
+                  No estimate data available
+                </p>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="sticky bottom-0 bg-white px-6 py-4 border-t border-gray-100 flex justify-end rounded-b-xl">
+              <button
+                onClick={() => setShowEstimate(false)}
+                className="px-5 py-2.5 text-sm font-semibold rounded-lg text-white"
+                style={{ backgroundColor: Brand.theme.colors.primary }}
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ═══ STICKY FOOTER ═══ */}
       <div
@@ -864,7 +1125,7 @@ const Dashboard = () => {
 /* ═══════════════════════════════════════════════════════
    TAB: Overview — 2×2 grid on desktop, stacked on mobile
    ═══════════════════════════════════════════════════════ */
-const OverviewTab = ({ rental }) => (
+const OverviewTab = ({ rental, editable }) => (
   <div className="space-y-4 sm:space-y-6">
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
       <SectionCard
@@ -886,11 +1147,32 @@ const OverviewTab = ({ rental }) => (
         }
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6">
-          <Field label="Name" value={rental.customer.fullName} bold />
-          <Field label="Company" value={rental.customer.company} />
-          <Field label="Phone" value={rental.customer.phone} />
-          <Field label="Email" value={rental.customer.email} />
-          <Field label="Licence" value={rental.customer.licenceNumber} />
+          <Field
+            editable={editable}
+            label="Name"
+            value={rental.customer.fullName}
+            bold
+          />
+          <Field
+            editable={editable}
+            label="Company"
+            value={rental.customer.company}
+          />
+          <Field
+            editable={editable}
+            label="Phone"
+            value={rental.customer.phone}
+          />
+          <Field
+            editable={editable}
+            label="Email"
+            value={rental.customer.email}
+          />
+          <Field
+            editable={editable}
+            label="Licence"
+            value={rental.customer.licenceNumber}
+          />
           <Field
             label="Address"
             value={`${rental.customer.address1}, ${rental.customer.cityPost}`}
@@ -952,13 +1234,21 @@ const OverviewTab = ({ rental }) => (
           </div>
         </div>
         <div className="grid grid-cols-2 gap-x-6">
-          <Field label="MVA" value={rental.vehicle.mva} />
+          <Field editable={editable} label="MVA" value={rental.vehicle.mva} />
           <Field
             label="Mileage Out"
             value={rental.vehicle.mileageOut?.toLocaleString()}
           />
-          <Field label="Fuel Out" value={rental.vehicle.fuelOut} />
-          <Field label="Damaged" value={rental.vehicle.damaged} />
+          <Field
+            editable={editable}
+            label="Fuel Out"
+            value={rental.vehicle.fuelOut}
+          />
+          <Field
+            editable={editable}
+            label="Damaged"
+            value={rental.vehicle.damaged}
+          />
         </div>
       </SectionCard>
     </div>
@@ -983,12 +1273,32 @@ const OverviewTab = ({ rental }) => (
         }
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6">
-          <Field label="Out Station" value={rental.rental.outStation} />
-          <Field label="In Station" value={rental.rental.inStation} />
-          <Field label="Checkout" value={rental.rental.checkout} />
-          <Field label="Return" value={rental.rental.return} />
-          <Field label="Rate Code" value={rental.rental.rateCode} />
-          <Field label="AWD" value={rental.rental.awd} />
+          <Field
+            editable={editable}
+            label="Out Station"
+            value={rental.rental.outStation}
+          />
+          <Field
+            editable={editable}
+            label="In Station"
+            value={rental.rental.inStation}
+          />
+          <Field
+            editable={editable}
+            label="Checkout"
+            value={rental.rental.checkout}
+          />
+          <Field
+            editable={editable}
+            label="Return"
+            value={rental.rental.return}
+          />
+          <Field
+            editable={editable}
+            label="Rate Code"
+            value={rental.rental.rateCode}
+          />
+          <Field editable={editable} label="AWD" value={rental.rental.awd} />
         </div>
         <div className="flex items-center gap-2 sm:gap-3 mt-4 pt-3 border-t border-gray-50 flex-wrap">
           <RatePill label="Daily" value={`£${rental.rates.daily.toFixed(2)}`} />
@@ -1019,12 +1329,193 @@ const OverviewTab = ({ rental }) => (
         }
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6">
-          <Field label="Method" value={rental.payment.method} />
-          <Field label="Card" value={rental.payment.card} />
-          <Field label="Auth Status" value={rental.payment.authStatus} />
+          <Field
+            editable={editable}
+            label="Method"
+            value={rental.payment.method}
+          />
+          <Field editable={editable} label="Card" value={rental.payment.card} />
+          <Field
+            editable={editable}
+            label="Auth Status"
+            value={rental.payment.authStatus}
+          />
         </div>
       </SectionCard>
     </div>
+
+    {/* Adjustments + Protections/Coverages */}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+      <SectionCard
+        title="Adjustments"
+        icon={
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.5}
+              d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+            />
+          </svg>
+        }
+      >
+        <div className="grid grid-cols-2 gap-x-6">
+          <Field
+            editable={editable}
+            label="Free Day Cert (Exclusive)"
+            value={rental.charges.csc}
+          />
+          <Field
+            editable={editable}
+            label="Money Off"
+            value={rental.charges.moneyOff}
+          />
+          <Field editable={editable} label="Customer Loyalty" value="0.00" />
+          <Field editable={editable} label="Loyalty" value="0.00" />
+        </div>
+      </SectionCard>
+
+      <SectionCard
+        title="Protections / Coverages"
+        icon={
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.5}
+              d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+            />
+          </svg>
+        }
+      >
+        <div className="overflow-x-auto">
+          <table className="w-full text-[12px]">
+            <thead>
+              <tr className="border-b border-gray-100">
+                <th className="text-left py-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                  Type
+                </th>
+                <th className="text-right py-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                  Selected
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                {
+                  type: "Collision Damage Waiver",
+                  selected: rental.rental?.rateCode ? "Yes" : "No",
+                },
+                { type: "Personal Accident Ins", selected: "No" },
+                { type: "Additional Liability", selected: "Yes" },
+                { type: "Theft Protection", selected: "Yes" },
+              ].map((row, i) => (
+                <tr key={i} className="border-b border-gray-50 last:border-0">
+                  <td
+                    className="py-2.5 font-medium"
+                    style={{ color: Brand.theme.colors.primary }}
+                  >
+                    {row.type}
+                  </td>
+                  <td className="py-2.5 text-right font-semibold">
+                    {row.selected}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </SectionCard>
+    </div>
+
+    {/* Miscellaneous Charges */}
+    <SectionCard
+      title="Miscellaneous Charges"
+      icon={
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.5}
+            d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"
+          />
+        </svg>
+      }
+    >
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-6">
+        <Field
+          editable={editable}
+          label="Air Conditioning"
+          value={rental.charges.others}
+        />
+        <Field
+          editable={editable}
+          label="Parking Garage Storage"
+          value={rental.charges.parking}
+        />
+        <Field editable={editable} label="Parking Fines" value="0.00" />
+        <Field
+          editable={editable}
+          label="Accident Repairs"
+          value={rental.charges.accidentRepairs}
+        />
+        <Field editable={editable} label="Cleaning/Maint" value="0.00" />
+        <Field editable={editable} label="Under 25" value="0.00" />
+        <Field editable={editable} label="Winter Service" value="0.00" />
+        <Field editable={editable} label="PAI/Super PAI" value="0.00" />
+        <Field editable={editable} label="Security Fee" value="0.00" />
+        <Field editable={editable} label="Additional Driver" value="0.00" />
+        <Field editable={editable} label="Keys" value="0.00" />
+        <Field
+          editable={editable}
+          label="Towing"
+          value={rental.charges.towing}
+        />
+        <Field editable={editable} label="Green Card Insurance" value="0.00" />
+        <Field
+          editable={editable}
+          label="Other"
+          value={rental.charges.others}
+        />
+        <Field editable={editable} label="Refuel Fee" value="0.00" />
+        <Field
+          editable={editable}
+          label="Combination Of Charges"
+          value="0.00"
+        />
+        <Field
+          editable={editable}
+          label="Ski/Luggage Racks"
+          value={rental.charges.luggageRack}
+        />
+        <Field editable={editable} label="Collection Fee" value="0.00" />
+        <Field editable={editable} label="Telephone/Car Phone" value="0.00" />
+        <Field
+          editable={editable}
+          label="Child Seat"
+          value={rental.charges.childSeat}
+        />
+        <Field editable={editable} label="Out Of Hours" value="0.00" />
+        <Field editable={editable} label="Registration Fee" value="0.00" />
+        <Field editable={editable} label="Tire/Wheel Damage" value="0.00" />
+        <Field editable={editable} label="Handling Fee Cash" value="0.00" />
+      </div>
+    </SectionCard>
 
     {rental.notes && rental.notes.length > 0 && (
       <div className="w-full bg-white rounded-xl border border-gray-100 overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
@@ -1069,7 +1560,7 @@ const OverviewTab = ({ rental }) => (
 /* ═══════════════════════════════════════════════════════
    TAB: Customer — full width, 3 cols on desktop
    ═══════════════════════════════════════════════════════ */
-const CustomerTab = ({ rental }) => (
+const CustomerTab = ({ rental, editable }) => (
   <SectionCard
     title="Customer Details"
     icon={
@@ -1089,19 +1580,64 @@ const CustomerTab = ({ rental }) => (
     }
   >
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6">
-      <Field label="Full Name" value={rental.customer.fullName} bold />
-      <Field label="Company" value={rental.customer.company} />
-      <Field label="Phone" value={rental.customer.phone} />
-      <Field label="Email" value={rental.customer.email} />
-      <Field label="Licence Country" value={rental.customer.licenceCountry} />
-      <Field label="Licence State" value={rental.customer.licenceState} />
-      <Field label="Licence Number" value={rental.customer.licenceNumber} />
-      <Field label="Date of Birth" value={rental.customer.dateOfBirth} />
-      <Field label="Address" value={rental.customer.address1} />
-      <Field label="City/Post" value={rental.customer.cityPost} />
-      <Field label="Loyalty" value={rental.customer.loyalty} />
-      <Field label="Frequent Travel" value={rental.customer.freqTravel} />
-      <Field label="Partner Number" value={rental.customer.partnerNumber} />
+      <Field
+        editable={editable}
+        label="Full Name"
+        value={rental.customer.fullName}
+        bold
+      />
+      <Field
+        editable={editable}
+        label="Company"
+        value={rental.customer.company}
+      />
+      <Field editable={editable} label="Phone" value={rental.customer.phone} />
+      <Field editable={editable} label="Email" value={rental.customer.email} />
+      <Field
+        editable={editable}
+        label="Licence Country"
+        value={rental.customer.licenceCountry}
+      />
+      <Field
+        editable={editable}
+        label="Licence State"
+        value={rental.customer.licenceState}
+      />
+      <Field
+        editable={editable}
+        label="Licence Number"
+        value={rental.customer.licenceNumber}
+      />
+      <Field
+        editable={editable}
+        label="Date of Birth"
+        value={rental.customer.dateOfBirth}
+      />
+      <Field
+        editable={editable}
+        label="Address"
+        value={rental.customer.address1}
+      />
+      <Field
+        editable={editable}
+        label="City/Post"
+        value={rental.customer.cityPost}
+      />
+      <Field
+        editable={editable}
+        label="Loyalty"
+        value={rental.customer.loyalty}
+      />
+      <Field
+        editable={editable}
+        label="Frequent Travel"
+        value={rental.customer.freqTravel}
+      />
+      <Field
+        editable={editable}
+        label="Partner Number"
+        value={rental.customer.partnerNumber}
+      />
     </div>
   </SectionCard>
 );
@@ -1109,7 +1645,7 @@ const CustomerTab = ({ rental }) => (
 /* ═══════════════════════════════════════════════════════
    TAB: Vehicle — full width, 3 cols on desktop
    ═══════════════════════════════════════════════════════ */
-const VehicleTab = ({ rental }) => (
+const VehicleTab = ({ rental, editable }) => (
   <SectionCard
     title="Vehicle Details"
     icon={
@@ -1135,12 +1671,17 @@ const VehicleTab = ({ rental }) => (
     }
   >
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6">
-      <Field label="Description" value={rental.vehicle.description} bold />
-      <Field label="Make" value={rental.vehicle.make} />
-      <Field label="Year" value={rental.vehicle.year} />
-      <Field label="Colour" value={rental.vehicle.colour} />
-      <Field label="Group" value={rental.vehicle.group} />
-      <Field label="MVA" value={rental.vehicle.mva} />
+      <Field
+        editable={editable}
+        label="Description"
+        value={rental.vehicle.description}
+        bold
+      />
+      <Field editable={editable} label="Make" value={rental.vehicle.make} />
+      <Field editable={editable} label="Year" value={rental.vehicle.year} />
+      <Field editable={editable} label="Colour" value={rental.vehicle.colour} />
+      <Field editable={editable} label="Group" value={rental.vehicle.group} />
+      <Field editable={editable} label="MVA" value={rental.vehicle.mva} />
       <Field
         label="Mileage Out"
         value={rental.vehicle.mileageOut?.toLocaleString()}
@@ -1149,9 +1690,21 @@ const VehicleTab = ({ rental }) => (
         label="Mileage In"
         value={rental.vehicle.mileageIn?.toLocaleString() || "—"}
       />
-      <Field label="Fuel Out" value={rental.vehicle.fuelOut} />
-      <Field label="Fuel Service" value={rental.vehicle.fuelService} />
-      <Field label="Damaged" value={rental.vehicle.damaged} />
+      <Field
+        editable={editable}
+        label="Fuel Out"
+        value={rental.vehicle.fuelOut}
+      />
+      <Field
+        editable={editable}
+        label="Fuel Service"
+        value={rental.vehicle.fuelService}
+      />
+      <Field
+        editable={editable}
+        label="Damaged"
+        value={rental.vehicle.damaged}
+      />
       <Field
         label="Accident Reported"
         value={rental.vehicle.accidentReported}
@@ -1163,7 +1716,7 @@ const VehicleTab = ({ rental }) => (
 /* ═══════════════════════════════════════════════════════
    TAB: Rental & Rates — full width
    ═══════════════════════════════════════════════════════ */
-const RentalRatesTab = ({ rental }) => (
+const RentalRatesTab = ({ rental, editable }) => (
   <div className="space-y-4 sm:space-y-6">
     <SectionCard
       title="Rental Details"
@@ -1184,16 +1737,50 @@ const RentalRatesTab = ({ rental }) => (
       }
     >
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6">
-        <Field label="Out Station" value={rental.rental.outStation} />
-        <Field label="In Station" value={rental.rental.inStation} />
-        <Field label="Checkout" value={rental.rental.checkout} bold />
-        <Field label="Return" value={rental.rental.return} bold />
-        <Field label="Rate Code" value={rental.rental.rateCode} />
-        <Field label="AWD" value={rental.rental.awd} />
-        <Field label="Coupon" value={rental.rental.coupon || "—"} />
-        <Field label="Type of Rental" value={rental.rental.typeOfRental} />
-        <Field label="Commission" value={rental.rental.commission} />
-        <Field label="Tax" value={rental.rental.tax} />
+        <Field
+          editable={editable}
+          label="Out Station"
+          value={rental.rental.outStation}
+        />
+        <Field
+          editable={editable}
+          label="In Station"
+          value={rental.rental.inStation}
+        />
+        <Field
+          editable={editable}
+          label="Checkout"
+          value={rental.rental.checkout}
+          bold
+        />
+        <Field
+          editable={editable}
+          label="Return"
+          value={rental.rental.return}
+          bold
+        />
+        <Field
+          editable={editable}
+          label="Rate Code"
+          value={rental.rental.rateCode}
+        />
+        <Field editable={editable} label="AWD" value={rental.rental.awd} />
+        <Field
+          editable={editable}
+          label="Coupon"
+          value={rental.rental.coupon || "—"}
+        />
+        <Field
+          editable={editable}
+          label="Type of Rental"
+          value={rental.rental.typeOfRental}
+        />
+        <Field
+          editable={editable}
+          label="Commission"
+          value={rental.rental.commission}
+        />
+        <Field editable={editable} label="Tax" value={rental.rental.tax} />
         <Field
           label="Discount"
           value={rental.rental.discount ? `${rental.rental.discount}%` : "—"}
@@ -1231,7 +1818,7 @@ const RentalRatesTab = ({ rental }) => (
 /* ═══════════════════════════════════════════════════════
    TAB: Payment — cards side by side on desktop
    ═══════════════════════════════════════════════════════ */
-const PaymentTab = ({ rental }) => (
+const PaymentTab = ({ rental, editable }) => (
   <div className="space-y-4 sm:space-y-6">
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
       <SectionCard
@@ -1253,9 +1840,22 @@ const PaymentTab = ({ rental }) => (
         }
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6">
-          <Field label="Method" value={rental.payment.method} />
-          <Field label="Card" value={rental.payment.card} bold />
-          <Field label="Auth Status" value={rental.payment.authStatus} />
+          <Field
+            editable={editable}
+            label="Method"
+            value={rental.payment.method}
+          />
+          <Field
+            editable={editable}
+            label="Card"
+            value={rental.payment.card}
+            bold
+          />
+          <Field
+            editable={editable}
+            label="Auth Status"
+            value={rental.payment.authStatus}
+          />
         </div>
       </SectionCard>
 
@@ -1323,24 +1923,326 @@ const PaymentTab = ({ rental }) => (
       }
     >
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6">
-        <Field label="CSC" value={`£${rental.charges.csc}`} />
-        <Field label="Money Off" value={`£${rental.charges.moneyOff}`} />
+        <Field
+          editable={editable}
+          label="CSC"
+          value={`£${rental.charges.csc}`}
+        />
+        <Field
+          editable={editable}
+          label="Money Off"
+          value={`£${rental.charges.moneyOff}`}
+        />
         <Field
           label="Coupon Amount"
           value={`£${rental.charges.couponAmount}`}
         />
-        <Field label="Parking" value={`£${rental.charges.parking}`} />
-        <Field label="Child Seat" value={`£${rental.charges.childSeat}`} />
-        <Field label="Towing" value={`£${rental.charges.towing}`} />
+        <Field
+          editable={editable}
+          label="Parking"
+          value={`£${rental.charges.parking}`}
+        />
+        <Field
+          editable={editable}
+          label="Child Seat"
+          value={`£${rental.charges.childSeat}`}
+        />
+        <Field
+          editable={editable}
+          label="Towing"
+          value={`£${rental.charges.towing}`}
+        />
         <Field
           label="Accident Repairs"
           value={`£${rental.charges.accidentRepairs}`}
         />
-        <Field label="Luggage Rack" value={`£${rental.charges.luggageRack}`} />
-        <Field label="Others" value={`£${rental.charges.others}`} />
+        <Field
+          editable={editable}
+          label="Luggage Rack"
+          value={`£${rental.charges.luggageRack}`}
+        />
+        <Field
+          editable={editable}
+          label="Others"
+          value={`£${rental.charges.others}`}
+        />
       </div>
     </SectionCard>
   </div>
 );
 
 export default Dashboard;
+
+/* ═══════════════════════════════════════════════════════
+   TAB: Adjustments
+   ═══════════════════════════════════════════════════════ */
+const AdjustmentsTab = ({ rental, editable }) => (
+  <SectionCard
+    title="Adjustments"
+    icon={
+      <svg
+        className="w-4 h-4"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={1.5}
+          d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+        />
+      </svg>
+    }
+  >
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6">
+      <Field
+        editable={editable}
+        label="Free Day Cert (Exclusive Rate)"
+        value={rental.charges.csc}
+      />
+      <Field editable={editable} label="Customer Empowerment" value="0.00" />
+      <Field
+        editable={editable}
+        label="Money Off Certificate"
+        value={rental.charges.moneyOff}
+      />
+      <Field editable={editable} label="Loyalty Certificate" value="0.00" />
+      <Field
+        editable={editable}
+        label="Free Day Cert (Inclusive Rate)"
+        value="0.00"
+      />
+      <Field editable={editable} label="Loyalty" value="0.00" />
+      <Field editable={editable} label="Fuel Amt $" value="0.00" />
+      <Field editable={editable} label="Other Amt $" value="0.00" />
+    </div>
+  </SectionCard>
+);
+
+/* ═══════════════════════════════════════════════════════
+   TAB: Protections / Coverages
+   ═══════════════════════════════════════════════════════ */
+const ProtectionsTab = ({ rental }) => (
+  <SectionCard
+    title="Protections / Coverages"
+    icon={
+      <svg
+        className="w-4 h-4"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={1.5}
+          d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+        />
+      </svg>
+    }
+  >
+    <div className="overflow-x-auto">
+      <table className="w-full text-[13px]">
+        <thead>
+          <tr className="border-b border-gray-200">
+            <th className="text-left py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+              Type
+            </th>
+            <th className="text-right py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+              Select
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {[
+            { type: "Collision Damage Waiver", selected: "Yes" },
+            { type: "Personal Accident Ins", selected: "No" },
+            { type: "Windscreen Cover", selected: "No" },
+            { type: "Theft Protection", selected: "Yes" },
+          ].map((row, i) => (
+            <tr key={i} className="border-b border-gray-50 last:border-0">
+              <td
+                className="py-3 font-medium"
+                style={{ color: Brand.theme.colors.primary }}
+              >
+                {row.type}
+              </td>
+              <td
+                className="py-3 text-right font-semibold"
+                style={{ color: Brand.theme.colors.text.primary }}
+              >
+                {row.selected}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </SectionCard>
+);
+
+/* ═══════════════════════════════════════════════════════
+   TAB: Miscellaneous Charges
+   ═══════════════════════════════════════════════════════ */
+const MiscChargesTab = ({ rental, editable }) => (
+  <SectionCard
+    title="Miscellaneous Charges"
+    icon={
+      <svg
+        className="w-4 h-4"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={1.5}
+          d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"
+        />
+      </svg>
+    }
+  >
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-6">
+      <Field editable={editable} label="Air Conditioning" value="0.00" />
+      <Field
+        editable={editable}
+        label="Parking Garage Storage"
+        value={rental.charges.parking}
+      />
+      <Field editable={editable} label="Parking Fines/Citations" value="0.00" />
+      <Field
+        editable={editable}
+        label="Accident Repairs"
+        value={rental.charges.accidentRepairs}
+      />
+      <Field editable={editable} label="Cleaning/Maintenance" value="0.00" />
+      <Field editable={editable} label="Under 25" value="0.00" />
+      <Field editable={editable} label="Winter Service Fees" value="0.00" />
+      <Field editable={editable} label="PAI/Super PAI" value="0.00" />
+      <Field editable={editable} label="Security Fee" value="0.00" />
+      <Field editable={editable} label="Additional Driver" value="0.00" />
+      <Field editable={editable} label="Keys" value="0.00" />
+      <Field editable={editable} label="Towing" value={rental.charges.towing} />
+      <Field editable={editable} label="Green Card Insurance" value="0.00" />
+      <Field editable={editable} label="Other" value={rental.charges.others} />
+      <Field editable={editable} label="Refuel Fee" value="0.00" />
+      <Field editable={editable} label="Combination Of Charges" value="0.00" />
+      <Field
+        editable={editable}
+        label="Ski/Luggage Racks"
+        value={rental.charges.luggageRack}
+      />
+      <Field editable={editable} label="Collection Fee" value="0.00" />
+      <Field editable={editable} label="Telephone/Car Phone" value="0.00" />
+      <Field
+        editable={editable}
+        label="Child Seat"
+        value={rental.charges.childSeat}
+      />
+      <Field editable={editable} label="Out Of Hours" value="0.00" />
+      <Field editable={editable} label="Registration Fee" value="0.00" />
+      <Field editable={editable} label="Tire/Wheel Damage" value="0.00" />
+      <Field editable={editable} label="Handling Fee Cash" value="0.00" />
+      <Field editable={editable} label="Delivery/Pickup Fee" value="0.00" />
+      <Field editable={editable} label="Misc Towing" value="0.00" />
+      <Field editable={editable} label="Misc Other" value="0.00" />
+      <Field editable={editable} label="Recovery Handling Fee" value="0.00" />
+    </div>
+  </SectionCard>
+);
+
+/* ═══════════════════════════════════════════════════════
+   TAB: Additional Products
+   ═══════════════════════════════════════════════════════ */
+const ProductsTab = () => {
+  const products = [
+    { code: "ADF", desc: "FREE ADDITIONAL DRIVER" },
+    { code: "CNP", desc: "CARBON NUETRAL PRODUCT" },
+    { code: "FSK", desc: "SPEEDY CHECKOUT EXPERIENCE" },
+    { code: "GPS", desc: "GLOBAL POSITIONING SYSTEM" },
+    { code: "HOL", desc: "BRITAX STROLLER" },
+    { code: "IXB", desc: "GROUP 0 ISOFIX CHILD SEAT BASE" },
+    { code: "LOG", desc: "LOGISTIC FEE" },
+    { code: "MAD", desc: "RAILWAY DELIVERY SERVICES" },
+    { code: "MKV", desc: "ENGINE/CAR HEATER" },
+    { code: "MPF", desc: "MARKET PRICE FUEL" },
+    { code: "RSF", desc: "INCLUSIVE ROADSIDE ASSISTANCE" },
+    { code: "RSN", desc: "ROADSIDE SAFETY NET" },
+    { code: "SCS", desc: "SCANDINAVIAN GROUP CHILD SEAT" },
+    { code: "SPD", desc: "TRAFFIC SAFETY DEVICE" },
+    { code: "STK", desc: "HAND TRUCK" },
+    { code: "TCT", desc: "TRAVEL COMPANION TABLET" },
+    { code: "TVA", desc: "CARWASH" },
+    { code: "VSF", desc: "AVIS SAFE DRIVE EUROPE" },
+    { code: "VSS", desc: "AVIS SAFE DRIVE" },
+    { code: "WFI", desc: "WIFI" },
+    { code: "XLJ", desc: "EXTRA LIGHTS" },
+  ];
+
+  return (
+    <SectionCard
+      title="Additional Products"
+      icon={
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.5}
+            d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+          />
+        </svg>
+      }
+    >
+      <div className="overflow-x-auto">
+        <table className="w-full text-[12px]">
+          <thead>
+            <tr className="border-b border-gray-200">
+              <th className="text-left py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                Product
+              </th>
+              <th className="text-center py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                Amount
+              </th>
+              <th className="text-center py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                Tracking Number
+              </th>
+              <th className="text-center py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                Daily
+              </th>
+              <th className="text-center py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                Weekly
+              </th>
+              <th className="text-center py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                Max
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {products.map((p, i) => (
+              <tr
+                key={i}
+                className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50"
+              >
+                <td className="py-2.5 font-medium text-gray-700">
+                  {p.code} - {p.desc}
+                </td>
+                <td className="py-2.5 text-center text-gray-400">—</td>
+                <td className="py-2.5 text-center text-gray-400">—</td>
+                <td className="py-2.5 text-center text-gray-400">—</td>
+                <td className="py-2.5 text-center text-gray-400">—</td>
+                <td className="py-2.5 text-center text-gray-400">—</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </SectionCard>
+  );
+};

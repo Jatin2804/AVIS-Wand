@@ -20,7 +20,7 @@ const avisTheme = {
     footer: "#000000",
     footerText: "#ffffff",
     text: {
-      primary: "#000000",
+      primary: "#1f2937",
       secondary: "#4a4a4a",
       muted: "#767676",
       inverse: "#ffffff",
