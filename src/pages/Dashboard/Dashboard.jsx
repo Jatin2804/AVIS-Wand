@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Brand from "../../brands";
 import wandService from "../../services/wandService";
+import fallbackRental from "../../data/fallbackRental";
+import { fallbackEstimate } from "../../data/fallbackRental";
 
 /* ─── Helpers ─── */
 function getCurrentStep(timeline) {
@@ -117,6 +119,7 @@ const Dashboard = () => {
   const [showEstimate, setShowEstimate] = useState(false);
   const [estimateData, setEstimateData] = useState(null);
   const [estimateLoading, setEstimateLoading] = useState(false);
+  const [isLiveData, setIsLiveData] = useState(false);
 
   useEffect(() => {
     if (!raNumber) {
@@ -136,7 +139,15 @@ const Dashboard = () => {
     setLoading(true);
     const fetchRental = async () => {
       try {
-        const data = await wandService.displayRental(raNumber);
+        let data = await wandService.displayRental(raNumber);
+        // Use fallback if API returns not found or fails
+        if (!data?.rentalData || data.rentalNotFound) {
+          console.warn("API returned no data, using fallback");
+          data = fallbackRental;
+          setIsLiveData(false);
+        } else {
+          setIsLiveData(true);
+        }
         if (data?.rentalData) {
           const r = data.rentalData;
           // Map WAND API response to the format Dashboard expects
@@ -248,7 +259,108 @@ const Dashboard = () => {
           });
         }
       } catch (err) {
-        console.error("Failed to fetch rental:", err);
+        console.error("Failed to fetch rental, using fallback:", err);
+        // Use fallback data when API is completely down
+        const data = fallbackRental;
+        const r = data.rentalData;
+        const parseCurrencyFb = (val) => {
+          if (!val) return 0;
+          const decoded = val.replace(/&#\d+;/g, "").replace(/&amp;#\d+;/g, "");
+          return parseFloat(decoded.replace(/[^0-9.]/g, "")) || 0;
+        };
+        setRental({
+          raNumber: r.raNum,
+          status: r.rentalClosed ? "closed" : "open",
+          references: {
+            ra: r.raNum,
+            wizard: r.wizardNumber,
+            reservation: r.resNum,
+            mva: r.mva,
+          },
+          customer: {
+            fullName: r.fullName,
+            company: r.company,
+            licenceCountry: r.licenseCountry,
+            licenceState: r.licenseState,
+            licenceNumber: r.licenseNumber,
+            dateOfBirth: r.dob,
+            address1: r.addr1,
+            address2: r.addr2,
+            cityPost: r.addr3,
+            phone: r.contact || "—",
+            email: data.wizconMB?.emailAddress || "—",
+            loyalty: r.preferredCustFlag ? "Preferred" : "",
+            preferred: r.preferred,
+            connectedCar: r.connectedCarsInd,
+            freqTravel: "",
+            partnerNumber: r.wizardNumber,
+          },
+          vehicle: {
+            mva: r.mva,
+            description: `${r.year} ${r.color} ${r.make} ${r.model}`,
+            make: `${r.make} ${r.model}`,
+            year: parseInt(r.year) || 0,
+            colour: r.color,
+            group: r.carGroup,
+            mileageOut: parseInt(r.mileageOut) || 0,
+            mileageIn: r.mileageIn ? parseInt(r.mileageIn) : null,
+            fuelOut: `${r.fuelOut}/8`,
+            fuelService: r.fuelSvc === "Y" ? "Yes" : "No",
+            damaged: r.damageIndicator === "Y" ? "Yes" : "No",
+            accidentReported: r.accidentReportIndicator === "Y" ? "Yes" : "No",
+          },
+          rental: {
+            outStation: `${r.checkOutStationMnemonic} — ${r.checkOutStation?.trim()}`,
+            inStation: `${r.checkInStationMnemonic} — ${r.checkInStation?.trim()}`,
+            checkout: `${r.checkOutDate} ${r.checkOutTime || ""}`.trim(),
+            return: `${r.checkInDate} ${r.checkInTime || ""}`.trim(),
+            rateCode: r.rateCode,
+            awd: r.awdCompanyName || "—",
+            coupon: r.coupon || "—",
+            remarks: r.remarks,
+            commission: r.commission,
+            tax: `${r.tax}%`,
+            discount: r.discount,
+            typeOfRental: r.rentalStatus || r.status,
+          },
+          payment: {
+            method: r.mop,
+            card: `${r.ccType} •••• ${r.cardNo?.slice(-4) || ""}`,
+            authStatus: r.authOut === "YES" ? "Authorized" : "Pending",
+          },
+          rates: {
+            daily: parseCurrencyFb(r.daily),
+            weekly: parseCurrencyFb(r.weekly),
+            freeMiles: data.qvData?.qvDiFreeMiles || "—",
+          },
+          charges: {
+            csc: r.custServiceCert || "0.00",
+            moneyOff: r.moneyOff || "0.00",
+            couponAmount: "0.00",
+            parking: r.parkingGarage || "0.00",
+            childSeat: r.childSeat || "0.00",
+            towing: r.towing || "0.00",
+            accidentRepairs: r.accidentRepairs || "0.00",
+            luggageRack: r.luggageRack || "0.00",
+            others: r.other || "0.00",
+          },
+          totals: {
+            amountDue: parseCurrencyFb(r.amtDueRateAmt),
+            estTotal: parseCurrencyFb(r.totalChargesRateAmt),
+            prepayment: 0,
+          },
+          timeline: [
+            { key: "reserved", done: true, sub: "" },
+            { key: "checkedOut", done: true, sub: r.checkOutDate },
+            { key: "onRental", current: true, sub: r.status },
+            { key: "return", sub: r.checkInDate },
+            { key: "closed", sub: "—" },
+          ],
+          notes: [
+            { who: "Remarks", text: r.remarks },
+            { who: "Status", text: r.turnBackStatus },
+          ],
+        });
       } finally {
         setLoading(false);
       }
@@ -299,9 +411,14 @@ const Dashboard = () => {
     setShowEstimate(true);
     try {
       const data = await wandService.estimateTotal();
-      setEstimateData(data);
+      if (data?.dispormodMB) {
+        setEstimateData(data);
+      } else {
+        setEstimateData(fallbackEstimate);
+      }
     } catch (err) {
-      console.error("Estimate error:", err);
+      console.error("Estimate error, using fallback:", err);
+      setEstimateData(fallbackEstimate);
     } finally {
       setEstimateLoading(false);
     }
@@ -425,10 +542,13 @@ const Dashboard = () => {
                     {rental.status === "open" ? "OPEN" : "CLOSED"}
                   </span>
                 </span>
+                <span
+                  className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${isLiveData ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}
+                >
+                  {isLiveData ? "LIVE" : "OFFLINE"}
+                </span>
               </div>
             </div>
-
-            {/* Timeline — inline on desktop, hidden on mobile (shown below instead) */}
             <div className="hidden lg:flex flex-1 items-center justify-center mx-4 max-w-xl">
               <div className="flex items-center w-full">
                 {rental.timeline.map((step, i) => (

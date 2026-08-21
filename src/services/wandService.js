@@ -41,7 +41,7 @@ const wandService = {
       searchString,
       wizardNo: "",
       discountNo: "",
-      closed: "false",
+      closed: "true",
       raNo: "",
       mva: "",
       name: "",
