@@ -39,7 +39,7 @@ const Navbar = () => {
             {
               ra: r.raNum,
               name: r.fullName,
-              status: r.rentalAlive ? "open" : "closed",
+              status: r.rentalClosed ? "closed" : "open",
               vehicle: `${r.year} ${r.color} ${r.make} ${r.model}`.trim(),
             },
           ]);

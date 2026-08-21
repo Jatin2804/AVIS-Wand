@@ -142,7 +142,7 @@ const Dashboard = () => {
           // Map WAND API response to the format Dashboard expects
           setRental({
             raNumber: r.raNum,
-            status: r.rentalAlive ? "open" : "closed",
+            status: r.rentalClosed ? "closed" : "open",
             references: {
               ra: r.raNum,
               wizard: r.wizardNumber,
@@ -222,13 +222,25 @@ const Dashboard = () => {
               estTotal: parseCurrency(r.totalChargesRateAmt),
               prepayment: 0,
             },
-            timeline: [
-              { key: "reserved", done: true, sub: "" },
-              { key: "checkedOut", done: true, sub: r.checkOutDate },
-              { key: "onRental", current: true, sub: r.status },
-              { key: "return", sub: r.checkInDate },
-              { key: "closed", sub: "—" },
-            ],
+            timeline: r.rentalClosed
+              ? [
+                  { key: "reserved", done: true, sub: "" },
+                  { key: "checkedOut", done: true, sub: r.checkOutDate },
+                  { key: "onRental", done: true, sub: "" },
+                  { key: "return", done: true, sub: r.checkInDate },
+                  {
+                    key: "closed",
+                    current: true,
+                    sub: r.rentalStatus || "Closed",
+                  },
+                ]
+              : [
+                  { key: "reserved", done: true, sub: "" },
+                  { key: "checkedOut", done: true, sub: r.checkOutDate },
+                  { key: "onRental", current: true, sub: r.status },
+                  { key: "return", sub: r.checkInDate },
+                  { key: "closed", sub: "—" },
+                ],
             notes: [
               { who: "Remarks", text: r.remarks },
               { who: "Status", text: r.turnBackStatus },
